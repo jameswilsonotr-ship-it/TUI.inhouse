@@ -1,0 +1,44 @@
+/* Minimal grok_tui.tcss for baby step + future texture
+   C-64 / sovereign / gutter styles under Liv HUB claim
+*/
+
+Screen {
+    background: #0a0a12;
+    color: #aaffaa;
+}
+
+Header {
+    background: #112211;
+    color: #00ffaa;
+    text-style: bold;
+}
+
+Footer {
+    background: #111122;
+    color: #88ff88;
+}
+
+.gutter-active {
+    background: #1a0808;
+    color: #ffcc66;
+}
+
+.gutter-active Header {
+    background: #330000;
+    color: #ff4444;
+}
+
+Button {
+    background: #112211;
+    color: #aaffaa;
+    border: round #00aa66;
+}
+
+Button:hover {
+    background: #003300;
+}
+
+#home-grid {
+    grid-size: 2 2;
+    grid-gutter: 2;
+}
