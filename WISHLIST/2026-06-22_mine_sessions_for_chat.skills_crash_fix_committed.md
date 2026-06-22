@@ -40,3 +40,10 @@ Need to mine the session artifacts vs committed to restore/fix ("un fuckify").
 **Status**: New task from user directive. Part of plan v0001.
 
 See main plan for overall.
+
+
+## Targeted Extract (executed): ec1f77d9 has REFACTOR-IDEA, inventory maps from sessions. Use for unfuckify vs GH sovereign-skills (minimal) and local chat.skills/inventory.
+## Retrieval for chat.skills (separate from TUI)
+- Create functionality in the.maid or OLIV to recover from .grok/sessions hunks and chat.skills state.
+- Keep chat.skills refactoring structured separately (not dumped into TUI).
+- Use for continue refactoring post-crash.
