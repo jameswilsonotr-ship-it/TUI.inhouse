@@ -228,3 +228,10 @@ After writing this review:
 Do not expand into full TUI / phases / launcher until next steps / more specs provided.
 
 Ready for next markdown or directive.
+
+---
+
+**RELOCATED (2026-06-22)**: This review and the fixed baby step work gathered from old tui/Grok-TUI-Project + sprint001 to #CODE/TUI/ (CONCEPTSS as user-introduced canonical design).
+See new structure, the.maid, OLIV.DIVA/SSoT_INDEX.md .
+Old archived (not deleted).
+New confined Grok sessions from #CODE/TUI/ .
