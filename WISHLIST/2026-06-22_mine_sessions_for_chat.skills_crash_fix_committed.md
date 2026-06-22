@@ -43,7 +43,16 @@ See main plan for overall.
 
 
 ## Targeted Extract (executed): ec1f77d9 has REFACTOR-IDEA, inventory maps from sessions. Use for unfuckify vs GH sovereign-skills (minimal) and local chat.skills/inventory.
+## Mining outputs (v0001)
+- WISHLIST/mining/ : extracted_REFACTOR-IDEA-*.md , cluster-map, notes_..., better_* chunks from compaction segments (REFACTOR-1/2/3 ideas for top-level dynamic, per-skill std, clusters, master-inventory refs, normalize scripts).
+- 31 artifacts recovered via the.maid/scripts/retrieval (hunk meta + copied mined) to the.maid/discipline/recovery/ . Run standalone or via cod.
+- Key content recovered: REFACTOR-IDEA-1 minimal top 4-6 skills dynamic loading + registry; IDEA-2 export/web clusters; IDEA-3 per-skill standardization + git per skill; cluster-map, master-inventory refs, normalization, FOLDER-STANDARDS edits, skill-orchestrator, phase reports etc.
 ## Retrieval for chat.skills (separate from TUI)
 - Create functionality in the.maid or OLIV to recover from .grok/sessions hunks and chat.skills state.
 - Keep chat.skills refactoring structured separately (not dumped into TUI).
 - Use for continue refactoring post-crash.
+## Compare notes (GH via MCP + prestage)
+- sovereign-skills: thin meta (9 objs, workflows only) vs rich mined/local ~61 skills.
+- grok-nyxelle: full tree matches NYXELLE local structure (keep separate).
+- olivia-dev: stub only.
+## Status: v0001 mining/prestage/retrieval advanced. See OLIV plan/report/SSoT + the.maid.

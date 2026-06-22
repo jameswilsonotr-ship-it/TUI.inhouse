@@ -1,0 +1,3 @@
+# Extracted from ec1f77d9 compaction segment_003.md
+
+REFACTOR-IDEA-3-PER-SKILL-STANDARDIZATION-GIT-DOCS-SCRIPTS.md
