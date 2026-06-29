@@ -1,0 +1,9 @@
+# Runtime / generated for AWESOME LAUNCHER OF TUI DOOM + TUI work
+__pycache__/
+*.pyc
+.venv/
+logs/
+sessions/
+*.zip
+# Demo zips can be recreated with --create-demo; commit specific examples only if intentional
+# Keep sample_menu.zip out unless explicitly wanted in repo

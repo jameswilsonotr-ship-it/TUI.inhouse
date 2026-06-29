@@ -228,4 +228,106 @@ The launcher searches for zips, when selected, extracts to temp or cache, runs p
 
 This keeps it simple, matches the design from artifacts (bootstrap, modular, Textual, branding), and user requirements (zip menus, harness, chunk, record, BBS simple).
 
-Next: implement Phase 1.
+**Phase 1 Status (2026-06-29)**: Implemented and committed (see commit 4f0b60a + merge of a1819d5). Core launcher works, demo passes verification.
+
+---
+
+## New Commit Inspected (a1819d5)
+
+Checked out repo first (fetched, inspected commit, extracted/looked at file, merged after committing Phase 1 changes).
+
+Commit message: "Added comprehensive guide: TEXTUAL_TCSS_GUTTER_MODE_AND_STARTER_TEMPLATE.md. Includes TCSS explanation, two-layer Gutter Mode theming system (scriptable via class toggle), custom widget examples, multi-pane layouts, subprocess-to-Log streaming, and a full minimal runnable starter template. This consolidates all research and implementation guidance for the TUI project. Standing by for next steps from GrokBuildCLI."
+
+The added file is a short placeholder pointing to the described content (the "file or two" to download/look at).
+
+**Current alignment**:
+- We already use subprocess + RichLog streaming (in launcher via @work + call_from_thread).
+- Gutter via class toggle (see minimal_tui.py action_toggle_gutter + .gutter-active CSS in grok_tui.tcss and embedded styles).
+- Two-layer theming (base rules + .gutter-active overrides).
+- Existing minimal_tui.py is a runnable starter grid.
+- grok_tui.tcss provides C-64/sovereign base.
+
+Phase 2 will incorporate the full guidance from this commit.
+
+---
+
+## Overall Phases Before "Usable, Stable, Efficient, Future-Proofed"
+
+**Recommendation: 3 phases total** (Phase 1 done; two more phases).
+
+Rationale (per user request: stable + efficient + future-proofed, **but not all crazy expanded form**):
+- The goal is a rock-solid, dead-stupid-simple BBS-like launcher that is *actually usable* for real chunked/looped work + automation via recording.
+- Keep scope tight: focus on launcher + zip/harness contract + good TUI + recording.
+- Avoid turning it into a full sovereign OS or expanding the original Grok Build 7-phase dashboard unless explicitly asked.
+- "Usable": real tasks (memory days, etc.) can be run reliably from TUI or CLI replay.
+- "Stable": bootstrap ensures it runs, good error handling/exit levels, no breakage on missing deps or bad zips.
+- "Efficient": chunked by design (one day at a time or range), streaming logs, isolated subprocess, no full data load.
+- "Future-proof": modular via drop-in zips, manifest-driven, config driven, follows locked design (zero path, venv, Textual texture, Gutter), recording allows replay when anything changes, easy to extend without core changes.
+- End state at Phase 3: You can hand the AWESOME_LAUNCHER...py to someone with Python in PATH and they can do useful work immediately. No bloat.
+
+**Phase 1 (DONE)**: Minimal working TUI bits + core contract.
+- Bootstrap launcher (python in PATH works).
+- Default "go find a real menu", zip search/extract/execute.
+- Basic harness contract + demo (chunk, logs, exit 0/1/2).
+- TUI basics + recording/replay.
+- Self-contained demo.
+
+**Phase 2: Stability + Polish + Texture + Efficiency (next)**
+What it looks like:
+- Full incorporation of the new TEXTUAL_TCSS_GUTTER... guidance: proper external .tcss (extend grok_tui.tcss or dedicated), implement two-layer Gutter Mode (App.add_class("gutter-active"), scriptable toggle, affects entire chrome + widgets for "heat reactive" feel). Higher contrast, "ruined" accents for high-heat states.
+- TUI upgrade using multi-pane layouts from the guide + starter template: left (menu list + library using ListView/DataTable), center (controls, chunk inputs, current selection, buttons), bottom/right (live RichLog streaming + status). Use the subprocess-to-Log patterns exactly.
+- Make the "full minimal runnable starter template" real and official (consolidate/evolve the existing minimal_tui.py + launcher home into clean, copyable example; document in the guide file or separate).
+- Stability upgrades: zip-slip protection on extract, manifest validation, graceful missing harness, per-run log dirs, better returncode + level reporting with colors/icons in TUI.
+- Efficiency: streaming is non-blocking (already good), add simple progress parsing from harness stdout if it emits special lines, cache last extracted for fast re-runs, resume logic for partial (exit 2).
+- Harness & menu improvements: richer menu.json (requirements?, description, tags), support "scripts/" subdir in zip, example "library of scripts" with exit metadata, harness can be python or other (if shebang).
+- Recording polish: better session format (include config snapshot, env notes for "when data/script/env changes"), in-TUI replay mode that steps through actions visibly.
+- Usability: command palette or / commands, persistent recent menus, --help / direct CLI run without full TUI (python AWESOME... --menu foo.zip --chunk 2026-06-20), help screen.
+- Future-proof seeds: expose a small HarnessBase or template generator inside launcher, version the launcher contract, full use of LAUNCHERCONFIG for everything.
+- Clean repo: .gitignore for __pycache__, sessions/, logs/ (demo only), sample zips optional.
+- Verification: run full demo + range chunk, toggle Gutter, record+replay, check logs.
+
+**Deliverables Phase 2**: Updated AWESOME launcher with Gutter/TCSS, improved panes, polished harness, recording v2, .tcss, updated planning + the guide file filled or referenced, README examples.
+
+**Phase 3: Production Usable + Future-Proof Completion (final for core)**
+What it looks like (keep contained):
+- "God tier but dial-up simple" complete: robust replay that can run fully non-interactively or simulated in TUI (with diff reporting for changes), export session as standalone automation script.
+- Advanced but not crazy: menu search/filter in TUI, favorites, manifest-defined "operations" beyond single harness, safe parallel chunk option (opt-in), log tailing + search in UI.
+- Efficiency & scale: extract caching with hash check, large log handling (virtualized Log widget if needed), resume from session mid-way.
+- Stability & future-proof: self-test mode (launcher --self-test runs demo and asserts exit levels/logs), harness template with full blade-law style headers if desired, support for venv-per-menu (opt-in in manifest), clear extension points.
+- Integration light: optional bridge to existing textual_main_app_schema / GrokBuildTUI for users who want the 7-phase screens alongside (e.g. "launch grok build from launcher").
+- Packaging & docs: single "distributable" note (the .py + config + one sample zip is the whole thing), full usage guide, how to author your own menu.zip.
+- No bloat: everything still fits the "if python in path it just works" + BBS simple menu energy.
+- End verification: End-to-end for real use case (e.g. multi-day chunk loop with recording, replay after "env change" simulation, Gutter on, clean exit on errors).
+
+**After Phase 3**: The launcher is usable for serious repeated work, stable across runs/machines, efficient by construction (chunking + streaming + isolation), future-proof via modularity and design principles. Further expansion (voice, full sovereign 7-phase control surface, hardware telemetry panes, etc.) would be new projects or explicit Phase 4+.
+
+---
+
+## Detailed Remaining Phase Planning (Begin)
+
+(Will be expanded with tasks, files, verification per turn. Start with Phase 2 as next.)
+
+**Phase 2 Tasks (high level to start)**:
+1. Create or extend dedicated .tcss (or use/extend grok_tui.tcss) with full two-layer Gutter + TCSS examples from the new guide. Add Gutter toggle to AWESOME launcher (binding + button + reactive chrome).
+2. Refactor TUI screens to multi-pane layout (Horizontal/Vertical + Grid per guide). Replace simple buttons with proper ListView for discovered zips (searchable/selectable).
+3. Enhance streaming: ensure all harness output + launcher messages go through RichLog with markup for levels. Add live status for current chunk/overall exit.
+4. Improve harness runner + chunk loop: add resume support, parse special progress from stdout, per-chunk log subdirs optional.
+5. Recording v2: richer json (include full config + argv snapshot), CLI + TUI replay modes.
+6. Usability + CLI: argparse full support for direct execution, --help, list-menus, etc.
+7. Stability: safe_extract function (path validation), manifest schema (light), try/except everywhere with user messages.
+8. Update demo harness + sample zip to showcase more (e.g. emit "progress: 50%").
+9. Docs & cleanup: fill or reference the TCSS guide with actual examples from our code, update TUI_Launcher_Planning.md + README, add minimal .gitignore.
+10. Verification: full run of range + record + replay + gutter toggle + direct CLI run.
+
+**Phase 3 high-level outline** (to be detailed later):
+- Replay engine (deterministic simulation or direct exec).
+- Advanced menus / library management.
+- Efficiency extras + self-tests.
+- Light integration points + packaging notes.
+- Final sovereign texture + future-proof contract lock.
+
+This keeps us focused, builds directly on the inspected commit, and delivers a solid, not-overgrown tool.
+
+Next: user turns loose for Phase 2 implementation (or more details on approach). 
+
+Repo now checked out + merged with latest (including the guide commit). All Phase 1 changes committed.
