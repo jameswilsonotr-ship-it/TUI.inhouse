@@ -1,0 +1,1 @@
+See the full content of the file created locally. It contains: What TCSS means, full Gutter Mode implementation using two CSS layers (normal vs gutter-active), how to switch themes cleanly, all previous widget examples, multi-pane layout code, subprocess streaming into Log widget, and a complete minimal multi-pane starter template (minimal_tui.py) with Gutter Mode support.
