@@ -47,3 +47,5 @@ Continuing to refine based on choice B.
 Will capture design decisions in this file and/or docs/.
 
 This file documents the current brainstorming for commit.
+
+**Repo Note**: Originally created under 'grok-tui', renamed to 'TUI.inhouse' per user request. Remote updated and content pushed.

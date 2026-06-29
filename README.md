@@ -30,7 +30,10 @@ Focus on:
 
 See sprint001/ for active plans and the code review notes.
 
+**GitHub Repository**: https://github.com/jameswilsonotr-ship-it/TUI.inhouse
+
 AGENTS.md at #CODE root for overall workspace discipline.
 
 ---
 Cleaned: 2026-06-29 03:37
+Repo renamed to TUI.inhouse (2026-06-29)
