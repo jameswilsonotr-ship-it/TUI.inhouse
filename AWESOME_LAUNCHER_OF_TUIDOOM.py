@@ -4,6 +4,8 @@ AWESOME_LAUNCHER_OF_TUIDOOM.py
 
 Rock-solid, dead-stupid-simple Python TUI launcher for zip-packaged menus.
 
+Version: 0.1.0 (Initial Sovereign Live Release - full Phase 3 test harness)
+
 - python AWESOME_LAUNCHER_OF_TUIDOOM.py   (if Python in PATH)
 - Default menu: "Go find a real menu"
 - Zips: search, select, extract, run via harness
@@ -11,8 +13,11 @@ Rock-solid, dead-stupid-simple Python TUI launcher for zip-packaged menus.
 - Full TUI (Textual): header, footer, screens, prompts, live logs, file I/O
 - Session recording + replay for automation on data/script/env changes
 - BBS god-tier simple but powerful
+- Phase 3: --test (prompt, auto-zip, gutter flash circle + obnoxious, success)
 
-Phase 1: minimal working bits. Bootstrap per design (stdlib first, venv, deps).
+References: OLIVIAPLEASEREADTHIS.md, olivia-dev-alpha in OLIV.DIVA, CHANGELOG.md, PHILOSOPHY.md
+
+Bootstrap per design (stdlib first, venv, deps).
 
 Usage examples:
   python AWESOME_LAUNCHER_OF_TUIDOOM.py
@@ -408,6 +413,9 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             yield Header()
             yield Label(cfg["branding"]["header"], id="brand")
             yield Static("Default: Go find a real menu  |  Zip menus + harnesses + chunked work + record/replay", id="subtitle")
+            # Exact branding per Olivia-pleasereadthis.markdown for Phase 3
+            yield Static('BBS-Level | Zip Menus + Harnesses | Chunked Ops | Record/Replay | Gutter Mode | Olivia Dev Alpha | Phase 3', id="branding-footer")
+            # Exact per Olivia-pleasereadthis.markdown: high-contrast pink/black, C-64, ruined in Gutter, Liv HUB / Olivia Dev Alpha refs.
 
             # Multi-pane inspired by Olivia guide starter template
             with Horizontal(id="main-area"):
@@ -433,6 +441,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                     yield Static("Selected: (none)", id="selected")
 
             yield Log(id="runlog")  # Per Olivia guide: Log for streaming output
+            yield Static("PANE FLASH CIRCLE: [ ] [ ] [ ]", id="pane-flash")  # For gutter-1 circle flash + obnoxious animations in Phase 3 test
             yield Footer()
 
         def on_mount(self) -> None:
@@ -525,7 +534,84 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def on_mount(self) -> None:
             self.title = self.config["branding"]["header"]
-            self.sub_title = "Phase 1 - BBS Simple + Harnesses"
+            self.sub_title = "Phase 3 - Full Test Harness (Olivia inputs)"
+            if os.environ.get("LAUNCHER_TEST_MODE") == "1":
+                self.run_worker(self._run_phase3_test_sequence, thread=True)
+
+        def _run_phase3_test_sequence(self) -> None:
+            """Phase 3 test harness per Olivia-pleasereadthis.markdown: 
+            - auto-zip if needed (handled in CLI)
+            - enter gutter-1
+            - flash panes in circle (rapid UI + rotating ASCII)
+            - ridiculous obnoxious shit (log spam, flashes, animations)
+            - success exit.
+            Gutter Mode live and toggleable. Exact branding locked.
+            """
+            import time
+            self.call_from_thread(self.log, "[bold]=== Phase 3 Test Sequence Starting (Gutter-1) ===[/bold]")
+            
+            # Auto Gutter flash on startup in test (per spec)
+            self.call_from_thread(lambda: setattr(self, 'gutter_active', True))
+            time.sleep(0.3)
+            self.call_from_thread(self.log, "AUTO GUTTER FLASH ON STARTUP - high heat engaged!")
+            self.call_from_thread(self.log, "Gutter Mode Engaged (level 1) - pink/black ruined styles active. Liv HUB / Olivia Dev Alpha reference: ON")
+
+            # Flash the panes in a circle + obnoxious shit
+            flash_widget = None
+            try:
+                flash_widget = self.query_one("#pane-flash", Static)
+            except:
+                pass
+
+            ascii_frames = [
+                "  / \\   ",
+                " /   \\  ",
+                "|  O  | ",
+                " \\   /  ",
+                "  \\ /   ",
+                "   -    ",
+                "  / \\   "
+            ]
+            panes = ["menu-pane", "controls-pane", "runlog area"]
+            for i in range(20):  # Extended ridiculous loop for obnoxious effect
+                idx = i % len(panes)
+                frame = ascii_frames[i % len(ascii_frames)]
+                msg = f"[GUTTER-{i%3+1} FLASH CIRCLE] Rotating on {panes[idx]} : {frame} !!!"
+                self.call_from_thread(self.log, msg)
+                
+                if flash_widget:
+                    self.call_from_thread(flash_widget.update, f"PANE FLASH CIRCLE: {frame} [INTENSE]")
+
+                # Ridiculous obnoxious shit: spam + flashes + animations
+                for s in range(4):
+                    self.call_from_thread(self.log, "!!! OBNOXIOUS SHIT: GUTTER HEAT RISING !!! RUINED TEXT SMUDGE !!! PINK/BLACK INTENSE FLASH !!! SILLY ANIMATION FRAME " + str(s))
+                    self.call_from_thread(self.log, "   ASCII BANNER: GUTTER MODE ENGAGED !!!! C-64 RUINED !!!!")
+                
+                # Simulate rapid color/border flash by toggling class temporarily (intensify)
+                if i % 2 == 0:
+                    self.call_from_thread(lambda: self.add_class("gutter-active"))  # re-apply for flash
+                else:
+                    self.call_from_thread(lambda: self.remove_class("gutter-active"))
+                    self.call_from_thread(lambda: self.add_class("gutter-active"))
+
+                time.sleep(0.08)  # Fast for "rapid UI updates"
+
+            # Restore Gutter
+            self.call_from_thread(lambda: self.add_class("gutter-active"))
+
+            self.call_from_thread(self.log, "Gutter flash circle complete. Obnoxious effects + animations demonstrated.")
+            time.sleep(0.8)
+            
+            # "Gutter Mode Engaged" banner with flair
+            self.call_from_thread(self.log, "[bold magenta]*** GUTTER MODE ENGAGED *** PINK/BLACK RUINED C-64 FLAIR ***[/bold magenta]")
+            self.call_from_thread(self.log, "Liv HUB claim active. Olivia Dev Alpha aesthetics locked.")
+
+            time.sleep(1)
+            self.call_from_thread(self.log, "[bold green]Successful test - Gutter Mode verified and harness operational![/bold green]")
+            self.call_from_thread(self.log, "Full cycle demonstrated: prompt -> auto-zip -> gutter-1 -> flash circle -> obnoxious -> success exit.")
+            self.call_from_thread(self.log, "Test harness cycle complete. Exiting cleanly.")
+            time.sleep(2)
+            self.call_from_thread(self.exit)
 
         def watch_current_zip(self, zip_path: Optional[Path]) -> None:
             sel = self.query_one("#selected", Static)
@@ -751,10 +837,11 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="AWESOME LAUNCHER OF TUI DOOM - Phase 1"
+        description="AWESOME LAUNCHER OF TUI DOOM - Phase 3 (full test harness per Olivia inputs)"
     )
     parser.add_argument("--replay", metavar="SESSION.json", help="Replay a recorded session (non-interactive)")
     parser.add_argument("--create-demo", action="store_true", help="Create sample_menu.zip and exit")
+    parser.add_argument("--test", action="store_true", help="Run Phase 3 test harness (interactive prompt, auto-zip, Gutter flash/obnoxious effects, success exit)")
     args = parser.parse_args()
 
     if args.create_demo:
@@ -771,6 +858,33 @@ def main() -> None:
             sys.exit(1)
         replay_session(sp)
         return
+
+    if args.test:
+        print("=== Phase 3 Test Harness Activated ===")
+        # Interactive prompt per Olivia-pleasereadthis.markdown
+        try:
+            user_input = input("Hey, what's your input file, idiot? ")
+        except EOFError:
+            user_input = ""
+        if not user_input.strip():
+            print("No input provided. Auto-generating sample zip as part of test...")
+            dest = Path.cwd() / "sample_menu.zip"
+            if not dest.exists():
+                create_demo_menu_zip(dest)
+                print(f"Auto-created: {dest}")
+            # Now proceed to TUI test flow
+            print("Entering Gutter mode for test. Launching TUI test sequence...")
+            # Pass test mode to TUI
+            os.environ["LAUNCHER_TEST_MODE"] = "1"
+        else:
+            print(f"Input received: {user_input}. Proceeding with test flow...")
+            os.environ["LAUNCHER_TEST_MODE"] = "1"
+        # Always ensure sample exists for the test cycle (per spec)
+        dest = Path.cwd() / "sample_menu.zip"
+        if not dest.exists():
+            create_demo_menu_zip(dest)
+            print(f"Auto-created sample for test: {dest}")
+        # Fall through to TUI with test mode
 
     # Full path (TUI or bootstrap)
     detect_env()

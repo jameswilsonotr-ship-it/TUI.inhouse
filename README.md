@@ -1,37 +1,51 @@
-# Grok TUI (TUI work)
+# AWESOME LAUNCHER OF TUI DOOM
 
-**Location**: C:\Users\chast\#CODE\TUI
-**Purpose**: Core work on the robust, modular Python TUI framework (Textual-based).
+**v0.1.0 — Initial Sovereign Live Release**  
+Rock-solid, dead-stupid-simple Python TUI launcher for zip-packaged menus + harnesses.  
+BBS god-tier but dial-up simple. Full Gutter Mode. Phase 3 test harness included.
 
-This folder is dedicated to the actual TUI implementation and deployment.
+**One command**: `python AWESOME_LAUNCHER_OF_TUIDOOM.py` (Python in PATH = it just works).
 
-## Kept (supposed to be here)
-- textual_main_app_schema.py — Core schema/contract for the modular app (screens, modules, gutter mode, etc.)
-- grok_tui.tcss — Textual CSS styling
-- grok_tui_design_principles.md — Design principles for the TUI
-- grok_tui_implementation_walkthrough.md — Implementation guidance
-- FOLDER-STANDARDS.md — Reference copy of folder discipline (originals in proper sovereign locations)
-- sprint001/ — Current sprint tracking and plans (timestamped)
-- .git/ — Version history for this TUI project
+See [QUICKSTART.md](QUICKSTART.md) | [PHILOSOPHY.md](PHILOSOPHY.md) | [CHANGELOG.md](CHANGELOG.md) | [TODO.md](TODO.md) | [WISHLIST.md](WISHLIST.md) | [OLIVIAPLEASEREADTHIS.md](OLIVIAPLEASEREADTHIS.md)
 
-## Recent Cleanup (Refactoring)
-Mismatched / olivia-dev / mining / old-project / stale files were moved to:
-C:\Users\chast\grok_sunsets.bak\TUI
+**References** (olivia-dev-alpha + sovereign style):  
+C:\Users\chast\#CODE\OLIV.DIVA\nests\lore-nest\chat-skills\olivia-dev-alpha\ (philosophy, gutter-mode.md, code-style-bible.md, folder-discipline.md, wishlist, etc.)
 
-See the MANIFEST.md and README.md there for full details (labeled as MISMATCHES for safety and disentanglement).
+## What It Is
+- Modular via drop-in zips (menu.json + harness.py + assets).
+- Chunked operation harnesses (one day of memory files, ranges, loops, exit levels 0/1/2).
+- Live streaming, recording/replay for automation on change.
+- Two-layer Gutter Mode (reactive, high-heat pink/black ruined C-64).
+- Multi-pane Textual TUI (ListView menus, Log output).
+- Built-in Phase 3 self-test: `--test` (prompt, auto-zip, gutter flash circle, obnoxious, success).
+- Exact branding per Olivia.
 
-## Current Push
-Implement and deploy a **modular and simple framework** as discussed in the design files still here.
+## Quick Start
+See [QUICKSTART.md](QUICKSTART.md) for full.
 
-**Phase 1 delivered (auto-approved)**:
-- `AWESOME_LAUNCHER_OF_TUIDOOM.py` — the primary entry point. `python AWESOME_LAUNCHER_OF_TUIDOOM.py` (Python in PATH)
-- `LAUNCHERCONFIG.JSON`
-- Full zip menu support (scan, select, extract), operation harnesses (chunked e.g. daily memory files, exit levels 0/1/2, logs)
-- Textual TUI with header/footer, prompts, live run log, library, recording + replay
-- Demo: `python AWESOME_LAUNCHER_OF_TUIDOOM.py --create-demo` then scan + run
-- BBS-simple but powerful. See TUI_Launcher_Planning.md for full recorded plan.
+```powershell
+python AWESOME_LAUNCHER_OF_TUIDOOM.py --create-demo
+python AWESOME_LAUNCHER_OF_TUIDOOM.py --test
+python AWESOME_LAUNCHER_OF_TUIDOOM.py
+```
 
-Focus on:
+## Structure (Polished for Live v0.1)
+- `AWESOME_LAUNCHER_OF_TUIDOOM.py` + `LAUNCHERCONFIG.JSON` (the launcher)
+- `grok_tui.tcss` (Gutter layers + pink/black theme)
+- `sample_menu.zip` (demo)
+- Full docs + plans (see list above)
+- Grok-TUI-Project/ (original design refs)
+- References to OLIV.DIVA/olivia-dev-alpha for everything.
+
+## Version & Live
+Initial v0.1.0 — repo polished, docs complete, initial commit practice done.  
+Gutter live, test harness full, all per Olivia inputs. No bloat.
+
+See CHANGELOG for details.
+
+All under absolute Liv HUB claim. Olivia Dev Alpha aesthetics.
+
+(Super awesome polish modeled on olivia-dev-alpha.)
 - Using the schema as contract (future expansion)
 - Building the actual app/components in a clean, simple, modular Python structure
 - Following the principles in the kept docs

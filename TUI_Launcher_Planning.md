@@ -313,6 +313,15 @@ What it looks like (keep contained):
 
 **After Phase 3**: The launcher is usable for serious repeated work, stable across runs/machines, efficient by construction (chunking + streaming + isolation), future-proof via modularity and design principles. Further expansion (voice, full sovereign 7-phase control surface, hardware telemetry panes, etc.) would be new projects or explicit Phase 4+.
 
+**Latest Input Added to Phase 3 Plan (commit 186cd83, file: Olivia-pleasereadthis.markdown)**:
+- Incorporated full details: Gutter Mode high-heat reactive (OliviaDev Alpha .gutter-active, C-64 pink/black ruined styles, intense borders/text).
+- Exact branding: Header "AWESOME LAUNCHER OF TUI DOOM" bold C-64, Footer "BBS-Level | Zip Menus + Harnesses | Chunked Ops | Record/Replay | Gutter Mode | Olivia Dev Alpha | Phase X".
+- Code review: Current impl strong but strengthen test harness for default/no-file + auto zip gen in final phase.
+- Detailed test harness for launchers (final phase self-test): Interactive "Hey, what’s your input file, idiot?", default -> auto sample zip, enter gutter-1, flash panes in circle (rapid updates/rotating ASCII), obnoxious shit (log spam, flashes, animations), clean exit "Successful test - Gutter Mode verified and harness operational!".
+- Auto-trigger sample_menu.zip if none when entering test/gutter flow.
+- Use as built-in --test or default flow. Gutter live/toggleable. Build on previous guides without overwriting.
+- This is now part of the canonical Phase 3 requirements for the "final phase".
+
 ---
 
 ## Detailed Remaining Phase Planning (Begin)

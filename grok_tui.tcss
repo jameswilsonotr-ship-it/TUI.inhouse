@@ -2,11 +2,21 @@
    Two-layer Gutter Mode + TCSS for the launcher.
    NORMAL MODE (default) + .gutter-active overrides.
    Do not overwrite the source "Olivia says read this.md".
+
+   Phase 3 branding per Olivia-pleasereadthis.markdown:
+   High-contrast pink/black default. Intense ruined in Gutter.
+   C-64 ANSI feel.
 */
 
 Screen {
-    background: $surface;
+    background: #0a0a0f; /* high-contrast dark for pink/black theme */
+    color: #ffccff;
 }
+
+$accent: #ff00aa; /* pink accent */
+$text: #ffccff;
+$surface: #0a0a0f;
+$error: #ff4488; /* intense for gutter */
 
 /* ===================== NORMAL MODE (Default) ===================== */
 .pane {
@@ -55,11 +65,11 @@ Button:hover {
 
 .gutter-active .pane {
     border: thick $error;
-    background: $surface-darken-2;
+    background: #1a0505; /* ruined darker */
 }
 
 .gutter-active .menu-item {
-    color: $error;
+    color: #ff4488;
     text-style: bold;
 }
 
@@ -69,8 +79,14 @@ Button:hover {
 }
 
 .gutter-active Header {
-    background: $error;
-    color: $text;
+    background: #ff0066; /* intense pink */
+    color: #ffffff;
+    text-style: bold;
+}
+
+/* Ruined text effects for high-heat */
+.gutter-active {
+    color: #ff99cc;
 }
 
 /* Legacy support for existing .gutter-active on Screen */
