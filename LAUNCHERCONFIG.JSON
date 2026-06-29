@@ -1,0 +1,23 @@
+{
+  "menu_search_paths": [
+    ".",
+    "./menus",
+    "./.launcher_menus",
+    "~/.tui/menus"
+  ],
+  "menus_dir": ".launcher_menus",
+  "logs_dir": "logs",
+  "sessions_dir": "sessions",
+  "branding": {
+    "header": "AWESOME LAUNCHER OF TUI DOOM",
+    "footer": "BBS-Level | Zip Menus + Harnesses | Chunked Ops | Record/Replay | Phase 1"
+  },
+  "harness": {
+    "default_chunk": "",
+    "chunk_size": "1day",
+    "log_files": ["processing.log", "error.log"]
+  },
+  "demo": {
+    "sample_zip_name": "sample_menu.zip"
+  }
+}

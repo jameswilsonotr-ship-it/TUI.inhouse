@@ -23,10 +23,19 @@ See the MANIFEST.md and README.md there for full details (labeled as MISMATCHES 
 ## Current Push
 Implement and deploy a **modular and simple framework** as discussed in the design files still here.
 
+**Phase 1 delivered (auto-approved)**:
+- `AWESOME_LAUNCHER_OF_TUIDOOM.py` — the primary entry point. `python AWESOME_LAUNCHER_OF_TUIDOOM.py` (Python in PATH)
+- `LAUNCHERCONFIG.JSON`
+- Full zip menu support (scan, select, extract), operation harnesses (chunked e.g. daily memory files, exit levels 0/1/2, logs)
+- Textual TUI with header/footer, prompts, live run log, library, recording + replay
+- Demo: `python AWESOME_LAUNCHER_OF_TUIDOOM.py --create-demo` then scan + run
+- BBS-simple but powerful. See TUI_Launcher_Planning.md for full recorded plan.
+
 Focus on:
-- Using the schema as contract
+- Using the schema as contract (future expansion)
 - Building the actual app/components in a clean, simple, modular Python structure
 - Following the principles in the kept docs
+- Olivia design files on master branch (planning md pushed to both master + main)
 
 See sprint001/ for active plans and the code review notes.
 
