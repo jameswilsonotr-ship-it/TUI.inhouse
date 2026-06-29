@@ -62,4 +62,4 @@ This research gives us excellent, real-world copyable patterns for a stable menu
 
 ---
 
-*Second research file created. Ready to push both markdown files to the TUI in-house repo so GrokBuildCLI can go crazy while we observe.*
+*Re-pushed to https://github.com/jameswilsonotr-ship-it/TUI.inhouse root on 2026-06-29. This commit serves as proof of active push.*
