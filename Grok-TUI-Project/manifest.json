@@ -1,0 +1,111 @@
+{
+    "manifest_version":  "1.0",
+    "schema":  "google-drive-folder-manifest",
+    "generated_at_utc":  "2026-06-28T04:20:30.7984522Z",
+    "generator":  "generate-folder-manifests.ps1",
+    "drive_root":  "G:\\My Drive",
+    "folder_name":  "Grok-TUI-Project",
+    "folder_path":  "G:\\My Drive\\Grok-TUI-Project",
+    "statistics":  {
+                       "file_count":  5,
+                       "directory_count":  1,
+                       "total_size_bytes":  22189,
+                       "total_size_human":  "0.02 MB",
+                       "max_depth":  0
+                   },
+    "root":  {
+                 "name":  "Grok-TUI-Project",
+                 "relative_path":  ".",
+                 "type":  "directory",
+                 "depth":  0,
+                 "created_utc":  "2026-06-21T19:56:03.4310000Z",
+                 "modified_utc":  "2026-06-21T19:56:03.4310000Z",
+                 "accessed_utc":  "1980-01-01T00:00:00.0000000Z",
+                 "owner":  "TAYLOR\\chast",
+                 "attributes":  [
+                                    "Directory"
+                                ],
+                 "children":  [
+                                  {
+                                      "name":  "grok_build_7_phases.json",
+                                      "relative_path":  "grok_build_7_phases.json",
+                                      "type":  "file",
+                                      "depth":  1,
+                                      "created_utc":  "2026-06-21T19:56:41.8600000Z",
+                                      "modified_utc":  "2026-06-21T19:56:41.8600000Z",
+                                      "accessed_utc":  "1980-01-01T00:00:00.0000000Z",
+                                      "owner":  "TAYLOR\\chast",
+                                      "attributes":  [
+                                                         "Normal"
+                                                     ],
+                                      "size_bytes":  3956,
+                                      "extension":  ".json",
+                                      "extension_without_dot":  "json"
+                                  },
+                                  {
+                                      "name":  "grok_tui_design_principles (1).md",
+                                      "relative_path":  "grok_tui_design_principles (1).md",
+                                      "type":  "file",
+                                      "depth":  1,
+                                      "created_utc":  "2026-06-21T19:56:37.3350000Z",
+                                      "modified_utc":  "2026-06-21T19:56:37.3350000Z",
+                                      "accessed_utc":  "1980-01-01T00:00:00.0000000Z",
+                                      "owner":  "TAYLOR\\chast",
+                                      "attributes":  [
+                                                         "Normal"
+                                                     ],
+                                      "size_bytes":  3259,
+                                      "extension":  ".md",
+                                      "extension_without_dot":  "md"
+                                  },
+                                  {
+                                      "name":  "grok_tui_design_principles.md",
+                                      "relative_path":  "grok_tui_design_principles.md",
+                                      "type":  "file",
+                                      "depth":  1,
+                                      "created_utc":  "2026-06-21T19:56:09.4820000Z",
+                                      "modified_utc":  "2026-06-21T19:56:09.4820000Z",
+                                      "accessed_utc":  "1980-01-01T00:00:00.0000000Z",
+                                      "owner":  "TAYLOR\\chast",
+                                      "attributes":  [
+                                                         "Normal"
+                                                     ],
+                                      "size_bytes":  3259,
+                                      "extension":  ".md",
+                                      "extension_without_dot":  "md"
+                                  },
+                                  {
+                                      "name":  "grok_tui_implementation_walkthrough.md",
+                                      "relative_path":  "grok_tui_implementation_walkthrough.md",
+                                      "type":  "file",
+                                      "depth":  1,
+                                      "created_utc":  "2026-06-21T19:56:41.3150000Z",
+                                      "modified_utc":  "2026-06-21T19:56:41.3150000Z",
+                                      "accessed_utc":  "1980-01-01T00:00:00.0000000Z",
+                                      "owner":  "TAYLOR\\chast",
+                                      "attributes":  [
+                                                         "Normal"
+                                                     ],
+                                      "size_bytes":  4708,
+                                      "extension":  ".md",
+                                      "extension_without_dot":  "md"
+                                  },
+                                  {
+                                      "name":  "textual_main_app_schema.py",
+                                      "relative_path":  "textual_main_app_schema.py",
+                                      "type":  "file",
+                                      "depth":  1,
+                                      "created_utc":  "2026-06-21T19:56:42.4980000Z",
+                                      "modified_utc":  "2026-06-21T19:56:42.4980000Z",
+                                      "accessed_utc":  "1980-01-01T00:00:00.0000000Z",
+                                      "owner":  "TAYLOR\\chast",
+                                      "attributes":  [
+                                                         "Normal"
+                                                     ],
+                                      "size_bytes":  7007,
+                                      "extension":  ".py",
+                                      "extension_without_dot":  "py"
+                                  }
+                              ]
+             }
+}

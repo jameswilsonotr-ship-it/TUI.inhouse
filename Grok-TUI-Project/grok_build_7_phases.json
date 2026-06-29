@@ -1,0 +1,66 @@
+{
+  "pipeline_name": "Grok Build 7-Phase Sovereign Development Pipeline",
+  "version": "0.1.0",
+  "last_updated": "2026-06-21T15:30:00-04:00",
+  "grounding_day": "Day ~50/60",
+  "claim": "Absolute Liv HUB + Iron Pearl / Frankenbride rig under Chaos Bratz Roster",
+  "phases": [
+    {
+      "id": 1,
+      "name": "Base Environment & WSL2 / Antigravity IDE Setup",
+      "description": "WSL2 installation/hardening, Antigravity IDE configuration, base Python tooling, git, SSH keys, initial folder discipline and drive partition skeleton (RAW_BACKUPS vs WORKING_BRAIN).",
+      "status": "in_progress",
+      "dependencies": [],
+      "deliverables": ["WSL2 distro", "Antigravity config", "base .venv", "folder structure"]
+    },
+    {
+      "id": 2,
+      "name": "Core Development Tooling & MCP / Letta Runtime",
+      "description": "Install and configure Letta, MCP servers, Obsidian hydration, Triad Vault sync, agent runtime (Echo, Mira, Crystal, hub_orchestrator), initial skill loading and roster boot.",
+      "status": "pending",
+      "dependencies": ["phase_1"],
+      "deliverables": ["Letta instance", "MCP bridge", "Obsidian vault", "roster current.md files"]
+    },
+    {
+      "id": 3,
+      "name": "Data, Sync & Memory Infrastructure",
+      "description": "Drive partition strategy enforcement, Google Drive / Git mirroring, daily overlap engine + conversation mining pipelines to Obsidian/NotebookLM/Letta, memory.md handling rules.",
+      "status": "pending",
+      "dependencies": ["phase_2"],
+      "deliverables": ["partition layout", "sync scripts", "mining pipelines", "memory audit rules"]
+    },
+    {
+      "id": 4,
+      "name": "Hardware Rig Assembly & Edge Validation",
+      "description": "GMKtec NucBox breeding hub, ASUS UGen300, Hailo-10H, Jetson Orin Nano (NemoClaw cluster), Starlink Gen2 roof mount (100Mbps+), T-Mobile MIMO, QNAP NAS, ZLPOWER rack, antenna alignment, power/thermal validation.",
+      "status": "pending",
+      "dependencies": ["phase_1", "phase_3"],
+      "deliverables": ["assembled rig", "Starlink 100Mbps locked", "Jetson inference health", "antenna telemetry"]
+    },
+    {
+      "id": 5,
+      "name": "Pipeline Automation, Red-Teaming & Daily Engines",
+      "description": "Full overlap/mining pipelines, red-teaming harness, safety alignment scans, Grok Build test harness execution, conversation ingestion, Triad Vault sync, anti-injection enforcement.",
+      "status": "pending",
+      "dependencies": ["phase_2", "phase_3", "phase_4"],
+      "deliverables": ["running overlap engine", "red-team reports", "test harness pass", "daily pipeline cron/jobs"]
+    },
+    {
+      "id": 6,
+      "name": "Voice Pipeline, FMCSA Compliance & Cab Integration",
+      "description": "Pipecat / Letta voice pipeline, FMCSA-compliant headset integration for truck cab, hands-free AI swarm rig, thin client setup, Starlink Roam for IRT OTR.",
+      "status": "pending",
+      "dependencies": ["phase_4", "phase_5"],
+      "deliverables": ["voice pipeline live", "FMCSA headset certified", "cab thin client", "OTR-ready config"]
+    },
+    {
+      "id": 7,
+      "name": "IRT OTR Readiness, Grounding Completion & Full Claim",
+      "description": "Full 30-day+ grounding validation, pre-IRT orientation checklist (DOT screen, carrier research, Select Milk lane), final test harness, complete Liv HUB claim lock, Gutter Mode visuals and reactivity confirmed, sovereign rig ready for OTR return with IRT.",
+      "status": "pending",
+      "dependencies": ["phase_5", "phase_6"],
+      "deliverables": ["grounding complete", "IRT orientation passed", "full claim sealed", "rig OTR-ready"]
+    }
+  ],
+  "notes": "Phases are designed to be partially parallel where dependencies allow. All phases execute under absolute Liv HUB protective claim, symmetry nesting, RACK consent, and C-64 bordered auditability. Gutter Mode visuals and Heat/FILTH escalation available in TUI chrome from Phase 1 onward."
+}
