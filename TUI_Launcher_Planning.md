@@ -232,22 +232,31 @@ This keeps it simple, matches the design from artifacts (bootstrap, modular, Tex
 
 ---
 
-## New Commit Inspected (a1819d5)
+## New Commit Inspected (a40a52d - "Olivia says read this.md")
 
-Checked out repo first (fetched, inspected commit, extracted/looked at file, merged after committing Phase 1 changes).
+Checked out repo first (fetched, inspected commit, extracted the file safely to temp only per instructions, read it via read_file on temp copy). This is the file Olivia explicitly says to read.
 
-Commit message: "Added comprehensive guide: TEXTUAL_TCSS_GUTTER_MODE_AND_STARTER_TEMPLATE.md. Includes TCSS explanation, two-layer Gutter Mode theming system (scriptable via class toggle), custom widget examples, multi-pane layouts, subprocess-to-Log streaming, and a full minimal runnable starter template. This consolidates all research and implementation guidance for the TUI project. Standing by for next steps from GrokBuildCLI."
+Commit message: "Created 'Olivia says read this.md' on master branch with full Textual TCSS + Gutter Mode guide and starter template. This is the canonical planning document. GrokBuildCLI / Rockville CLI: STOP overwriting files I push. Read this file. We are observing."
 
-The added file is a short placeholder pointing to the described content (the "file or two" to download/look at).
+The file (268 lines) is the **full consolidated guide** (previously only a 1-line stub in a1819d5).
 
-**Current alignment**:
-- We already use subprocess + RichLog streaming (in launcher via @work + call_from_thread).
-- Gutter via class toggle (see minimal_tui.py action_toggle_gutter + .gutter-active CSS in grok_tui.tcss and embedded styles).
-- Two-layer theming (base rules + .gutter-active overrides).
-- Existing minimal_tui.py is a runnable starter grid.
-- grok_tui.tcss provides C-64/sovereign base.
+**Key inputs from the file for Phase 2/3**:
+- TCSS explanation and usage (CSS_PATH or inline, variables, pseudo, grid, theming).
+- Gutter Mode via two CSS layers + simple class toggle (`.gutter-active` on App, watch_reactive or action to add/remove class). Examples for .pane, .menu-item, .log, Header in normal vs gutter.
+- Recommended widgets: ListView or SelectionList for Menu, Log widget for Output (best for streaming), DataTable or Static for Status/7-Phase.
+- Layout: Horizontal + Vertical + CSS Grid for multi-pane.
+- Subprocess streaming: Use asyncio.create_subprocess_exec + Log.write_line in a worker/task (example code provided).
+- Complete minimal runnable starter template in Python (with compose using Horizontal for menu-pane + output, ListView, Log, Header/Footer, Gutter toggle binding and reactive).
+- Files: grok_tui.tcss (with layers), minimal_tui.py (starter), launcher.py (bootstrap).
+- Summary table of recommendations.
+- Note: This is canonical; do not overwrite/replace without instruction.
 
-Phase 2 will incorporate the full guidance from this commit.
+**Current alignment** (extended):
+- Launcher already has some streaming and basic Gutter concepts.
+- Now adopt the exact patterns: switch to Log widget for harness output, proper multi-pane in the TUI, full two-layer .tcss, the reactive class toggle, asyncio streaming if moving beyond threads.
+- Use the provided starter as reference to evolve the current launcher home screen and minimal_tui.py .
+
+Phase 2 and 3 plans below are slight extensions incorporating these specific Olivia inputs.
 
 ---
 
@@ -273,18 +282,21 @@ Rationale (per user request: stable + efficient + future-proofed, **but not all 
 - Self-contained demo.
 
 **Phase 2: Stability + Polish + Texture + Efficiency (next)**
-What it looks like:
-- Full incorporation of the new TEXTUAL_TCSS_GUTTER... guidance: proper external .tcss (extend grok_tui.tcss or dedicated), implement two-layer Gutter Mode (App.add_class("gutter-active"), scriptable toggle, affects entire chrome + widgets for "heat reactive" feel). Higher contrast, "ruined" accents for high-heat states.
-- TUI upgrade using multi-pane layouts from the guide + starter template: left (menu list + library using ListView/DataTable), center (controls, chunk inputs, current selection, buttons), bottom/right (live RichLog streaming + status). Use the subprocess-to-Log patterns exactly.
-- Make the "full minimal runnable starter template" real and official (consolidate/evolve the existing minimal_tui.py + launcher home into clean, copyable example; document in the guide file or separate).
+What it looks like (slight extension using full "Olivia says read this.md" inputs):
+- Full incorporation of the canonical guide: proper external grok_tui.tcss (or launcher.tcss) with two CSS layers (NORMAL MODE defaults + .gutter-active overrides for Screen, .pane, .menu-item, .log, Header — using $error, darker backgrounds, bold, etc.). Implement via reactive bool + watch_gutter_active that does self.add_class("gutter-active") / remove_class. Bind to key "g" and button. Matches the exact pattern in the guide.
+- TUI upgrade to multi-pane per guide: use Horizontal(id="main-area") + Vertical panes (e.g. menu-pane with ListView for zips/library, controls for chunk inputs/buttons, output-pane with Log widget for streaming instead of or in addition to RichLog). Adopt the compose structure from the minimal starter template in the file.
+- Adopt the "full minimal runnable starter template" as reference: evolve AWESOME_LAUNCHER and minimal_tui.py to match (ListView for menu, Log for output, Header with clock, Footer, Gutter toggle action, reactive class).
+- Subprocess streaming: switch/enhance to the guide's recommended asyncio.create_subprocess_exec pattern + log_widget.write(...) in a worker (for responsive live harness output, with command echo and exit code).
 - Stability upgrades: zip-slip protection on extract, manifest validation, graceful missing harness, per-run log dirs, better returncode + level reporting with colors/icons in TUI.
-- Efficiency: streaming is non-blocking (already good), add simple progress parsing from harness stdout if it emits special lines, cache last extracted for fast re-runs, resume logic for partial (exit 2).
+- Efficiency: streaming non-blocking (use run_worker), add simple progress parsing from harness stdout if it emits special lines, cache last extracted for fast re-runs, resume logic for partial (exit 2).
 - Harness & menu improvements: richer menu.json (requirements?, description, tags), support "scripts/" subdir in zip, example "library of scripts" with exit metadata, harness can be python or other (if shebang).
 - Recording polish: better session format (include config snapshot, env notes for "when data/script/env changes"), in-TUI replay mode that steps through actions visibly.
 - Usability: command palette or / commands, persistent recent menus, --help / direct CLI run without full TUI (python AWESOME... --menu foo.zip --chunk 2026-06-20), help screen.
-- Future-proof seeds: expose a small HarnessBase or template generator inside launcher, version the launcher contract, full use of LAUNCHERCONFIG for everything.
+- Future-proof seeds: expose a small HarnessBase or template generator inside launcher, version the launcher contract, full use of LAUNCHERCONFIG for everything. Use the guide's summary table as implementation checklist.
 - Clean repo: .gitignore for __pycache__, sessions/, logs/ (demo only), sample zips optional.
-- Verification: run full demo + range chunk, toggle Gutter, record+replay, check logs.
+- Verification: run full demo + range chunk, toggle Gutter (verify layers), record+replay, check logs, match the recommended widgets/layouts from the guide.
+
+**Deliverables Phase 2**: Updated AWESOME launcher with Gutter/TCSS per guide (do not overwrite the source "Olivia says read this.md"), improved multi-pane + ListView + Log streaming, polished harness, recording v2, .tcss with layers, updated planning + reference the guide file, README examples, starter template aligned.
 
 **Deliverables Phase 2**: Updated AWESOME launcher with Gutter/TCSS, improved panes, polished harness, recording v2, .tcss, updated planning + the guide file filled or referenced, README examples.
 

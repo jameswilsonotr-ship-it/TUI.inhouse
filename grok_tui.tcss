@@ -1,10 +1,25 @@
-/* Minimal grok_tui.tcss for baby step + future texture
-   C-64 / sovereign / gutter styles under Liv HUB claim
+/* grok_tui.tcss - Consolidated from Olivia's canonical "Olivia says read this.md" guide
+   Two-layer Gutter Mode + TCSS for the launcher.
+   NORMAL MODE (default) + .gutter-active overrides.
+   Do not overwrite the source "Olivia says read this.md".
 */
 
 Screen {
-    background: #0a0a12;
-    color: #aaffaa;
+    background: $surface;
+}
+
+/* ===================== NORMAL MODE (Default) ===================== */
+.pane {
+    border: tall $accent;
+    padding: 1;
+}
+
+.menu-item {
+    color: $text;
+}
+
+.log {
+    background: $surface-darken-1;
 }
 
 Header {
@@ -16,16 +31,6 @@ Header {
 Footer {
     background: #111122;
     color: #88ff88;
-}
-
-.gutter-active {
-    background: #1a0808;
-    color: #ffcc66;
-}
-
-.gutter-active Header {
-    background: #330000;
-    color: #ff4444;
 }
 
 Button {
@@ -41,4 +46,40 @@ Button:hover {
 #home-grid {
     grid-size: 2 2;
     grid-gutter: 2;
+}
+
+/* ===================== GUTTER MODE (from guide - two CSS layers) ===================== */
+.gutter-active {
+    /* base override */
+}
+
+.gutter-active .pane {
+    border: thick $error;
+    background: $surface-darken-2;
+}
+
+.gutter-active .menu-item {
+    color: $error;
+    text-style: bold;
+}
+
+.gutter-active .log {
+    background: #1a0a0a; /* Darker, more intense */
+    color: #ffaaaa;
+}
+
+.gutter-active Header {
+    background: $error;
+    color: $text;
+}
+
+/* Legacy support for existing .gutter-active on Screen */
+.gutter-active Screen {
+    background: #1a0808;
+    color: #ffcc66;
+}
+
+.gutter-active Header {
+    background: #330000;
+    color: #ff4444;
 }

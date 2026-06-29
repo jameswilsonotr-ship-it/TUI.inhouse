@@ -4,6 +4,11 @@ minimal_tui.py - Minimal working TUI based on the design principles and walkthro
 Uses Textual for home grid menu as per Grok TUI Launcher design.
 Supports Gutter Mode, basic navigation.
 Run with: python minimal_tui.py
+
+Slight extension alignment with Olivia's canonical "Olivia says read this.md" (a40a52d on master):
+- Two-layer Gutter via class toggle
+- Reference for multi-pane / ListView / Log in the main launcher
+See that file (do not overwrite) for the full starter template and patterns.
 """
 
 from textual.app import App, ComposeResult

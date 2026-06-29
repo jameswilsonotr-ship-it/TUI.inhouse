@@ -397,7 +397,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
     # Heavy imports only after venv is ready
     from textual.app import App, ComposeResult
     from textual.containers import Grid, Horizontal, Vertical
-    from textual.widgets import Button, Header, Footer, Label, Static, RichLog, ListView, ListItem, Input
+    from textual.widgets import Button, Header, Footer, Label, Static, ListView, ListItem, Input, Log
     from textual.binding import Binding
     from textual.reactive import reactive
     from textual import work
@@ -409,25 +409,47 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             yield Label(cfg["branding"]["header"], id="brand")
             yield Static("Default: Go find a real menu  |  Zip menus + harnesses + chunked work + record/replay", id="subtitle")
 
-            with Grid(id="main-grid"):
-                yield Button("Go find a real menu (Scan)", id="scan", variant="primary")
-                yield Button("Create Demo Menu Zip", id="demo")
-                yield Button("Run Harness (use chunk inputs)", id="run", variant="success")
-                yield Button("View Library", id="library")
-                yield Button("Toggle Recording", id="rec")
-                yield Button("Save Recording", id="save_rec")
-                yield Button("Replay Last Session", id="replay")
+            # Multi-pane inspired by Olivia guide starter template
+            with Horizontal(id="main-area"):
+                with Vertical(id="menu-pane", classes="pane"):
+                    yield Static("MENUS", classes="pane-title")
+                    yield ListView(id="menu-list")  # Per Olivia guide: ListView for menu
 
-            with Horizontal():
-                yield Input(placeholder="Chunk (YYYY-MM-DD) or leave blank", id="chunk")
-                yield Input(placeholder="End date for range (optional)", id="end_chunk")
+                with Vertical(id="controls-pane", classes="pane"):
+                    with Grid(id="main-grid"):
+                        yield Button("Scan / Find Menu", id="scan", variant="primary")
+                        yield Button("Create Demo Zip", id="demo")
+                        yield Button("Run Harness", id="run", variant="success")
+                        yield Button("Library", id="library")
+                        yield Button("Toggle Rec", id="rec")
+                        yield Button("Save Rec", id="save_rec")
+                        yield Button("Replay", id="replay")
+                        yield Button("Toggle Gutter", id="gutter", variant="default")
 
-            yield Static("Selected Menu: (none)", id="selected")
-            yield RichLog(id="runlog", highlight=True, markup=True)
+                    with Horizontal():
+                        yield Input(placeholder="Chunk (YYYY-MM-DD)", id="chunk")
+                        yield Input(placeholder="End (optional)", id="end_chunk")
+
+                    yield Static("Selected: (none)", id="selected")
+
+            yield Log(id="runlog")  # Per Olivia guide: Log for streaming output
             yield Footer()
 
         def on_mount(self) -> None:
-            self.app.query_one("#runlog", RichLog).write("[dim]Launcher ready. Scan for zips or create demo.[/dim]")
+            self.app.query_one("#runlog", Log).write("[dim]Launcher ready. Scan for zips or create demo.[/dim]")
+
+        def on_list_view_selected(self, event) -> None:
+            """Handle selection from ListView (per Olivia guide recommendation for menu)."""
+            if hasattr(self.app, "_zips") and event.item is not None:
+                try:
+                    idx = list(event.list_view.children).index(event.item)
+                    if idx < len(self.app._zips):
+                        self.app.current_zip = self.app._zips[idx]
+                        sel = self.query_one("#selected", Static)
+                        sel.update(f"Selected: {self.app.current_zip.name}")
+                        self.app.log(f"[cyan]ListView selected: {self.app.current_zip.name}[/cyan]")
+                except Exception:
+                    pass
 
         def on_button_pressed(self, event: Button.Pressed) -> None:
             bid = event.button.id
@@ -450,8 +472,12 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 self.app.action_save_recording()
             elif bid == "replay":
                 self.app.replay_last()
+            elif bid == "gutter":
+                self.app.action_toggle_gutter()
 
     class AwesomeLauncherApp(App):
+        CSS_PATH = "grok_tui.tcss"  # From Olivia's canonical "Olivia says read this.md" (full guide, master a40a52d). Do not overwrite the source file. See that file for the complete TCSS layers, reactive Gutter, ListView+Log multi-pane starter template, and asyncio streaming example. This launcher is a slight extension/alignment.
+
         CSS = """
         Screen { align: center middle; }
         #brand { text-style: bold; color: #00ffaa; margin: 1; }
@@ -461,11 +487,25 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
         #selected { color: #ffaa00; margin: 1 0; }
         """
 
+        gutter_active: reactive[bool] = reactive(False)
+
+        def watch_gutter_active(self, active: bool) -> None:
+            """Automatically add/remove the class when the value changes (per Olivia guide)."""
+            if active:
+                self.add_class("gutter-active")
+            else:
+                self.remove_class("gutter-active")
+
+        def action_toggle_gutter(self) -> None:
+            """Bind this to a key (e.g. 'g'). Per the canonical guide."""
+            self.gutter_active = not self.gutter_active
+
         BINDINGS = [
             Binding("ctrl+q", "quit", "Quit"),
             Binding("s", "scan_menus", "Scan"),
             Binding("r", "toggle_record", "Record"),
             Binding("ctrl+s", "save_recording", "Save Rec"),
+            Binding("g", "toggle_gutter", "Toggle Gutter"),  # From Olivia guide
         ]
 
         current_zip: reactive[Optional[Path]] = reactive(None)
@@ -490,9 +530,9 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
         def watch_current_zip(self, zip_path: Optional[Path]) -> None:
             sel = self.query_one("#selected", Static)
             if zip_path:
-                sel.update(f"Selected Menu: {zip_path.name}  (extracted on run)")
+                sel.update(f"Selected: {zip_path.name} (extracted on run)")
             else:
-                sel.update("Selected Menu: (none)")
+                sel.update("Selected: (none)")
 
         def watch_is_recording(self, recording: bool) -> None:
             try:
@@ -503,7 +543,11 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def log(self, msg: str) -> None:
             try:
-                self.query_one("#runlog", RichLog).write(msg)
+                lw = self.query_one("#runlog", Log)
+                if hasattr(lw, "write_line"):
+                    lw.write_line(msg)
+                else:
+                    lw.write(msg)
             except Exception:
                 print(msg)
 
@@ -533,15 +577,23 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def scan_for_zips(self) -> None:
             zips = find_menu_zips(self.config.get("menu_search_paths", []))
-            lv = self.query_one(ListView) if False else None  # we use buttons + notify for minimal
             self.log(f"Scanned. Found {len(zips)} menu zip(s).")
             if not zips:
                 self.log("[yellow]No zips found. Use 'Create Demo Menu Zip' first.[/yellow]")
                 return
-            # Pick first for simplicity in Phase 1, or show names
-            for i, z in enumerate(zips[:5]):
-                self.log(f"  [{i+1}] {z.name}")
-            # Auto select the first for quick use
+
+            try:
+                lv = self.query_one("#menu-list", ListView)
+                lv.clear()
+                for z in zips:
+                    lv.append(ListItem(Static(z.name, classes="menu-item")))
+                self._zips = zips
+                if lv.children:
+                    lv.index = 0  # select first per guide-friendly list behavior
+            except Exception:
+                for i, z in enumerate(zips[:5]):
+                    self.log(f"  [{i+1}] {z.name}")
+
             self.current_zip = zips[0]
             self.log(f"[cyan]Selected: {self.current_zip.name}[/cyan]")
 
@@ -572,6 +624,50 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             except Exception as e:
                 self.log(f"[red]Replay error: {e}[/red]")
 
+        # Live harness runner (Phase 2 streaming per Olivia guide - line by line to Log)
+        def _run_harness_live(self, extracted_dir: Path, main_script: str, chunk: Optional[str], log_dir: Path) -> Dict[str, Any]:
+            harness = extracted_dir / main_script
+            if not harness.exists():
+                harness = extracted_dir / "harness.py"
+            if not harness.exists():
+                self.call_from_thread(self.log, "[red]No harness found[/red]")
+                return {"returncode": 1, "exit_level": 1, "chunk": chunk}
+
+            log_dir.mkdir(parents=True, exist_ok=True)
+            cmd = [sys.executable, str(harness)]
+            if chunk:
+                cmd += ["--chunk", chunk]
+            cmd += ["--log-dir", str(log_dir)]
+
+            self.call_from_thread(self.log, f"$ {' '.join(cmd)}")
+
+            try:
+                import subprocess
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(extracted_dir),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                )
+                for line in proc.stdout:
+                    line = line.rstrip("\n")
+                    if line:
+                        self.call_from_thread(self.log, line)
+                proc.wait()
+                rc = proc.returncode
+                level = 0 if rc == 0 else (2 if rc == 2 else 1)
+                self.call_from_thread(self.log, f"[Process exited with code {rc}]")
+                return {
+                    "returncode": rc,
+                    "exit_level": level,
+                    "chunk": chunk,
+                }
+            except Exception as e:
+                self.call_from_thread(self.log, f"[red]Stream error: {e}[/red]")
+                return {"returncode": 1, "exit_level": 1, "chunk": chunk}
+
         # Main run action - attached to a dynamic button or we trigger via code
         def run_current_harness(self, chunk: str = "", end_chunk: str = "") -> None:
             if not self.current_zip:
@@ -597,9 +693,27 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             @work(exclusive=True, thread=True)
             def _do_run() -> None:
                 try:
-                    results = run_chunked_harness(
-                        extracted, main_script, start_c, end_c, self.dirs["logs"]
-                    )
+                    # Live streaming version inspired by the Olivia guide's asyncio/subprocess to Log pattern
+                    # (adapted to thread worker for compatibility with existing harness)
+                    results = []
+                    if start_c and end_c:
+                        try:
+                            d = datetime.date.fromisoformat(start_c)
+                            end_d = datetime.date.fromisoformat(end_c)
+                            current = d
+                            while current <= end_d:
+                                res = self._run_harness_live(extracted, main_script, current.isoformat(), self.dirs["logs"])
+                                results.append(res)
+                                if res.get("exit_level") == 1 and res.get("returncode") != 2:
+                                    break
+                                current += datetime.timedelta(days=1)
+                        except Exception as e:
+                            self.call_from_thread(self.log, f"[red]Date range error: {e}[/red]")
+                    else:
+                        chunk = start_c or end_c
+                        res = self._run_harness_live(extracted, main_script, chunk, self.dirs["logs"])
+                        results.append(res)
+
                     for r in results:
                         level = r.get("exit_level", 1)
                         color = "green" if level == 0 else ("yellow" if level == 2 else "red")
@@ -607,9 +721,6 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                             self.log,
                             f"[{color}]Chunk {r.get('chunk') or 'full'}: exit_level={level} rc={r.get('returncode')}[/{color}]"
                         )
-                        if r.get("stdout"):
-                            for line in r["stdout"].strip().splitlines()[:8]:
-                                self.call_from_thread(self.log, f"  {line}")
                     overall = max((r.get("exit_level", 0) for r in results), default=0)
                     self.call_from_thread(self.log, f"[bold]Overall exit level: {overall}[/bold]  (0=done,1=error,2=partial)")
                     self.call_from_thread(self.log, "See logs/ for processing.log + error.log + run_summary.json")
