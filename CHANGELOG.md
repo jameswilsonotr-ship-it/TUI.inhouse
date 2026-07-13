@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [0.1.1] - 2026-07-13 - Install UX, log shadow crash fix, stamped logs
+
+### Fixed
+- **TUI crash** `AttributeError: 'function' object has no attribute 'system'`: `AwesomeLauncherApp.log` shadowed Textual’s `App.log` logger. Renamed UI helper to `ui_log`. Matches `logs/tui_crash.log` / `logs/error.log` from failed boots.
+- No silent reinstalls of already-present deps (or Python). Skip `pip install` when `textual` + `rich` import cleanly.
+
+### Added
+- **Install mode terminal UX** as soon as deps are touched: ~40 columns, black screen, white body text, a few reverse-video flashes; key words (`PASS`/`FAIL`/`OK`/`textual`/`rich`/`DEPS`/`pip`/…) stay colored.
+- **Library test demos** on every bootstrap: real import + tiny API calls for `textual`, `rich`, `zipfile`, `pathlib` printed on screen (not reinstalls).
+- **Stamped logs** under `logs/`:
+  - `error_YYYYMMDD_HHMMSS.log`, `success_YYYYMMDD_HHMMSS.log`, `ops_YYYYMMDD_HHMMSS.log`
+  - `bootstrap_*.log`, `bootstrap_deps_*.log`, `tui_crash_*.log`
+  - Stable latest aliases still updated: `error.log`, `success.log`, `ops.log`, `tui_crash.log`, …
+
+### Files
+- `AWESOME_LAUNCHER_OF_TUIDOOM.py`, `install.sh`, `launcher.py`
+
 ## [0.1.0] - 2026-06-29 - Initial Sovereign Release (v0.1 "Olivia Dev Alpha TUI")
 
 **Super Awesome Initial Version 0.1.0** of the AWESOME LAUNCHER OF TUI DOOM.
