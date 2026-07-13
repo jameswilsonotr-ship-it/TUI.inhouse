@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [0.1.3] - 2026-07-13 - Double Ctrl-C force kill + exact S-LOADING sequence
+
+### Added
+- **DOUBLE CTRL-C always FORCE KILLS** the process (`os._exit(130)`), no matter what:
+  - process `SIGINT` handler (bootstrap)
+  - Textual `ctrl+c` binding (raw-mode TUI)
+  - never disabled by install-mode exit
+  - first tap arms (1.5s window); second tap kills after TTY restore
+- **Exact S-LOADING sequence** (hard-coded, this order only):
+  1. `S1 LOADING · DETECT ENV`
+  2. `S2 LOADING · FIND/CREATE VENV`
+  3. `S3 LOADING · DEPS CHECK (skip reinstall if OK)`
+  4. `S4 LOADING · LIBRARY TEST DEMOS`
+  5. `S5 LOADING · TTY HARD RESTORE`
+  6. `S6 LOADING · LAUNCH TUI`
+
 ## [0.1.2] - 2026-07-13 - Safe install UX (no TTY brick on WSL)
 
 ### Fixed
