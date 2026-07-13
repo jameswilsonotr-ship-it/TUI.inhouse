@@ -47,6 +47,25 @@ from typing import Any, Dict, List, Optional
 
 CORE_DEPS = ["textual", "rich"]
 
+# Session stamp: one timestamp per process for all log files in this run
+_SESSION_STAMP: Optional[str] = None
+_INSTALL_MODE_ACTIVE = False
+_SAVED_TTY_COLS: Optional[str] = None
+
+
+def _session_stamp() -> str:
+    global _SESSION_STAMP
+    if _SESSION_STAMP is None:
+        # Survive re-exec into venv so one run shares one stamp
+        env_stamp = os.environ.get("AWESOME_LAUNCHER_STAMP", "").strip()
+        if env_stamp and len(env_stamp) >= 8:
+            _SESSION_STAMP = env_stamp
+        else:
+            _SESSION_STAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            os.environ["AWESOME_LAUNCHER_STAMP"] = _SESSION_STAMP
+    return _SESSION_STAMP
+
+
 def detect_env() -> Dict[str, Any]:
     print("Detecting environment...")
     env_info = {
@@ -61,32 +80,414 @@ def detect_env() -> Dict[str, Any]:
         print(f"  {k}: {v}")
     return env_info
 
+
+def _bootstrap_log_paths() -> Dict[str, Any]:
+    """Bootstrap/deps logging under logs/ with per-session date-time stamps.
+
+    Writes both stamped files (error_YYYYMMDD_HHMMSS.log, …) and stable
+    latest aliases (error.log, tui_crash.log, …) for install.sh tails.
+    """
+    base = Path(__file__).parent
+    log_dir = base / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = _session_stamp()
+    return {
+        "dir": log_dir,
+        "stamp": stamp,
+        "bootstrap": log_dir / f"bootstrap_{stamp}.log",
+        "bootstrap_latest": log_dir / "bootstrap.log",
+        "error": log_dir / f"error_{stamp}.log",
+        "error_latest": log_dir / "error.log",
+        "success": log_dir / f"success_{stamp}.log",
+        "success_latest": log_dir / "success.log",
+        "ops": log_dir / f"ops_{stamp}.log",
+        "ops_latest": log_dir / "ops.log",
+        "deps": log_dir / f"bootstrap_deps_{stamp}.log",
+        "deps_latest": log_dir / "bootstrap_deps.log",
+        "crash": log_dir / f"tui_crash_{stamp}.log",
+        "crash_latest": log_dir / "tui_crash.log",
+    }
+
+
+def _append_log(path: Path, text: str, *also: Path) -> None:
+    """Append timestamped blob to path and optional alias files."""
+    ts = datetime.datetime.now().isoformat()
+    blob = f"\n=== {ts} ===\n{text}"
+    if text and not text.endswith("\n"):
+        blob += "\n"
+    targets = [path, *also]
+    for p in targets:
+        if p is None:
+            continue
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(blob)
+
+
+def _write_success(msg: str) -> None:
+    paths = _bootstrap_log_paths()
+    _append_log(paths["success"], msg, paths["success_latest"], paths["ops"], paths["ops_latest"])
+    _append_log(paths["bootstrap"], f"SUCCESS: {msg}", paths["bootstrap_latest"])
+
+
+def _write_ops(msg: str) -> None:
+    paths = _bootstrap_log_paths()
+    _append_log(paths["ops"], msg, paths["ops_latest"], paths["bootstrap"], paths["bootstrap_latest"])
+
+
+def _write_error(msg: str) -> None:
+    paths = _bootstrap_log_paths()
+    _append_log(paths["error"], msg, paths["error_latest"], paths["ops"], paths["ops_latest"])
+    _append_log(paths["bootstrap"], f"ERROR: {msg}", paths["bootstrap_latest"])
+
+
+# ---- Install-mode terminal: 40 cols, black screen, white fonts, flashes ----
+# Key words stay colored (PASS/FAIL/OK/textual/rich/…).
+
+_INSTALL_WIDTH = 40
+_KEY_COLOR_MAP = (
+    (r"\bFAIL(?:ED|URE)?\b", "\033[91m"),
+    (r"\bERROR\b", "\033[91m"),
+    (r"\bPASS(?:ED)?\b", "\033[92m"),
+    (r"\bOK\b", "\033[92m"),
+    (r"\bSUCCESS\b", "\033[92m"),
+    (r"\bSKIP(?:PED)?\b", "\033[93m"),
+    (r"\bTEST\b", "\033[96m"),
+    (r"\btextual\b", "\033[95m"),
+    (r"\brich\b", "\033[95m"),
+    (r"\bpip\b", "\033[94m"),
+    (r"\bDEPS?\b", "\033[96m"),
+)
+
+
+def _colorize_keys(line: str) -> str:
+    """Color key tokens; rest stays white on black."""
+    import re as _re
+
+    out = line
+    for pat, color in _KEY_COLOR_MAP:
+        out = _re.sub(pat, lambda m, c=color: f"{c}{m.group(0)}\033[37m", out, flags=_re.IGNORECASE)
+    return out
+
+
+def _wrap40(text: str, width: int = _INSTALL_WIDTH) -> List[str]:
+    words = text.split()
+    if not words:
+        return [""]
+    lines: List[str] = []
+    cur = words[0]
+    for w in words[1:]:
+        if len(cur) + 1 + len(w) <= width:
+            cur = f"{cur} {w}"
+        else:
+            lines.append(cur)
+            cur = w
+    lines.append(cur)
+    return lines
+
+
+def install_mode_enter() -> None:
+    """Black screen, white fonts, ~40 columns, a few flashes. Key text stays colored."""
+    global _INSTALL_MODE_ACTIVE, _SAVED_TTY_COLS
+    if _INSTALL_MODE_ACTIVE:
+        return
+    _INSTALL_MODE_ACTIVE = True
+    # Try to set terminal columns (best-effort; WSL/console may ignore)
+    try:
+        if sys.stdin.isatty():
+            r = subprocess.run(
+                ["stty", "size"], capture_output=True, text=True, timeout=1
+            )
+            if r.returncode == 0 and r.stdout.strip():
+                parts = r.stdout.strip().split()
+                if len(parts) >= 2:
+                    _SAVED_TTY_COLS = parts[1]
+            subprocess.run(["stty", "cols", "40"], capture_output=True, timeout=1)
+    except Exception:
+        pass
+    # Black bg + white fg + clear
+    sys.stdout.write("\033[40m\033[37m\033[2J\033[H")
+    sys.stdout.flush()
+    install_mode_flash(n=3)
+    install_say("INSTALL MODE · 40 COL · BLACK/WHITE")
+    install_say("Key words stay colored. DEPS check next.")
+
+
+def install_mode_flash(n: int = 2) -> None:
+    """A few reverse-video screen flashes."""
+    for _ in range(n):
+        sys.stdout.write("\033[7m")  # reverse
+        sys.stdout.flush()
+        time.sleep(0.06)
+        sys.stdout.write("\033[27m\033[40m\033[37m")
+        sys.stdout.flush()
+        time.sleep(0.05)
+
+
+def install_say(msg: str, *, key: bool = True) -> None:
+    """Print in install mode (40-col wrap, white body, colored keys)."""
+    prefix = "\033[40m\033[37m" if _INSTALL_MODE_ACTIVE else ""
+    reset = "\033[0m" if not _INSTALL_MODE_ACTIVE else ""
+    for raw in _wrap40(msg):
+        body = _colorize_keys(raw) if key else raw
+        print(f"{prefix}{body}{reset}")
+    sys.stdout.flush()
+
+
+def install_mode_exit() -> None:
+    """Restore terminal a bit after install UX (leave colors usable for TUI)."""
+    global _INSTALL_MODE_ACTIVE, _SAVED_TTY_COLS
+    if not _INSTALL_MODE_ACTIVE:
+        return
+    if _SAVED_TTY_COLS:
+        try:
+            subprocess.run(
+                ["stty", "cols", str(_SAVED_TTY_COLS)],
+                capture_output=True,
+                timeout=1,
+            )
+        except Exception:
+            pass
+        _SAVED_TTY_COLS = None
+    sys.stdout.write("\033[0m\n")
+    sys.stdout.flush()
+    _INSTALL_MODE_ACTIVE = False
+
+
+def _venv_python(venv_path: Path) -> Path:
+    if sys.platform.startswith("win"):
+        return venv_path / "Scripts" / "python.exe"
+    return venv_path / "bin" / "python"
+
+
+def _deps_importable(python_bin: Path) -> bool:
+    """True if textual + rich import cleanly in venv — no reinstall needed."""
+    try:
+        check = subprocess.run(
+            [str(python_bin), "-c", "import textual, rich"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return check.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _run_library_demos(python_bin: Path) -> bool:
+    """On-screen test calls for each library used in dependency checking.
+
+    No reinstall — only import + tiny API exercise, results printed + logged.
+    """
+    paths = _bootstrap_log_paths()
+    install_mode_flash(n=2)
+    install_say("=== LIBRARY TEST DEMOS ===")
+    demo_script = r"""
+import json, sys
+results = []
+
+# textual
+try:
+    import textual
+    from textual.app import App
+    ver = getattr(textual, "__version__", "?")
+    ok = callable(App)
+    results.append(("textual", True, f"version={ver} App={ok}"))
+except Exception as e:
+    results.append(("textual", False, repr(e)))
+
+# rich
+try:
+    import rich
+    from rich.console import Console
+    from rich.text import Text
+    c = Console(file=sys.stdout, force_terminal=True, width=40, highlight=False)
+    t = Text("rich OK", style="bold white on black")
+    # don't print via Console here — parent formats; just exercise API
+    _ = t.plain
+    ver = getattr(rich, "__version__", "?")
+    results.append(("rich", True, f"version={ver} Console+Text ok"))
+except Exception as e:
+    results.append(("rich", False, repr(e)))
+
+# stdlib demos shown alongside (no install)
+try:
+    import zipfile, pathlib
+    results.append(("zipfile", True, f"ZipFile={callable(zipfile.ZipFile)}"))
+    results.append(("pathlib", True, f"Path={callable(pathlib.Path)}"))
+except Exception as e:
+    results.append(("stdlib", False, repr(e)))
+
+print(json.dumps(results))
+"""
+    try:
+        proc = subprocess.run(
+            [str(python_bin), "-c", demo_script],
+            capture_output=True,
+            text=True,
+            timeout=45,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        install_say(f"TEST FAIL: library demos: {e}")
+        _write_error(f"library demos OS error: {e}\n")
+        return False
+
+    raw = (proc.stdout or "").strip().splitlines()
+    json_line = raw[-1] if raw else "[]"
+    try:
+        results = json.loads(json_line)
+    except json.JSONDecodeError:
+        install_say("TEST FAIL: could not parse demo results")
+        _write_error(f"demo parse fail stdout={proc.stdout!r} stderr={proc.stderr!r}\n")
+        return False
+
+    all_ok = True
+    lines_log: List[str] = []
+    for name, ok, detail in results:
+        status = "PASS" if ok else "FAIL"
+        if not ok:
+            all_ok = False
+        line = f"TEST {name}: {status} — {detail}"
+        install_say(line)
+        lines_log.append(line)
+
+    blob = "LIBRARY DEMOS\n" + "\n".join(lines_log) + f"\nall_ok={all_ok}\n"
+    _write_ops(blob)
+    if all_ok:
+        _write_success("library demos PASS (textual, rich, zipfile, pathlib)\n")
+        install_say("DEPS library tests: PASS")
+    else:
+        _write_error(blob)
+        install_say("DEPS library tests: FAIL")
+    return all_ok
+
+
 def find_or_create_venv() -> Path:
     venv_path = Path(__file__).parent / ".venv"
     if not venv_path.exists():
-        print(f"Creating venv at {venv_path}...")
-        subprocess.check_call([sys.executable, "-m", "venv", str(venv_path)])
+        install_mode_enter()
+        install_say("Creating venv (python -m venv)...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "venv", str(venv_path)])
+            _write_success(f"venv created at {venv_path}\n")
+            install_say("venv: PASS")
+        except subprocess.CalledProcessError as e:
+            msg = f"venv create failed: {e}\ncmd={e.cmd!r} returncode={e.returncode}\n"
+            install_say("venv: FAIL")
+            _write_error(msg)
+            sys.exit(1)
     return venv_path
 
+
 def ensure_deps(venv_path: Path) -> Path:
-    if sys.platform.startswith("win"):
-        python_bin = venv_path / "Scripts" / "python.exe"
-    else:
-        python_bin = venv_path / "bin" / "python"
-    pip = [str(python_bin), "-m", "pip"]
-    print("Ensuring core deps (textual, rich) for TUI...")
-    try:
-        subprocess.check_call(pip + ["install", "--upgrade", "pip"], stdout=subprocess.DEVNULL)
-        subprocess.check_call(pip + ["install"] + CORE_DEPS, stdout=subprocess.DEVNULL)
-    except subprocess.CalledProcessError as e:
-        print(f"Dep install failed: {e}")
+    """Ensure textual/rich in venv. Skip reinstall if already importable.
+
+    Always runs on-screen library test demos. Install mode = 40-col black/white
+    with flashes and colored key words. Logs go to stamped files under logs/.
+    """
+    python_bin = _venv_python(venv_path)
+    paths = _bootstrap_log_paths()
+    if not python_bin.exists():
+        install_mode_enter()
+        msg = f"venv python missing: {python_bin}\n"
+        install_say(msg.strip())
+        _write_error(msg)
         sys.exit(1)
+
+    # Enter install UX as soon as we touch deps (install OR check path)
+    install_mode_enter()
+    install_say(f"stamp={paths['stamp']}")
+    install_say(f"logs → {paths['dir']}")
+    install_say("Ensuring core DEPS (textual, rich)...")
+    install_say(f"pip log → {Path(paths['deps']).name}")
+
+    already_ok = _deps_importable(python_bin)
+    if already_ok:
+        install_say("DEPS already importable — SKIP pip reinstall")
+        install_mode_flash(n=1)
+        _write_ops(
+            f"SKIP reinstall: textual+rich already importable via {python_bin}\n"
+        )
+        _write_success("deps present — no reinstall\n")
+    else:
+        install_say("DEPS missing — running pip install (no python reinstall)")
+        install_mode_flash(n=2)
+        pip = [str(python_bin), "-m", "pip"]
+
+        def _run_pip(args: List[str], label: str) -> None:
+            cmd = pip + args
+            install_say(f"pip: {label}")
+            install_say(" ".join(cmd)[:80])
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            blob = (
+                f"[{label}] cmd={' '.join(cmd)}\n"
+                f"returncode={proc.returncode}\n"
+                f"--- stdout ---\n{proc.stdout or ''}\n"
+                f"--- stderr ---\n{proc.stderr or ''}\n"
+            )
+            _append_log(
+                paths["deps"], blob, paths["deps_latest"], paths["bootstrap"], paths["bootstrap_latest"]
+            )
+            if proc.returncode != 0:
+                _write_error(f"BOOTSTRAP DEP FAILURE\n{blob}")
+                tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-12:]
+                for line in tail:
+                    install_say(f"| {line}")
+                install_say(f"Dep install FAIL ({label})")
+                install_say(f"Full: {paths['deps'].name}")
+                raise subprocess.CalledProcessError(
+                    proc.returncode, cmd, proc.stdout, proc.stderr
+                )
+            install_say(f"{label}: PASS")
+            _write_success(f"pip {label} PASS\n")
+
+        try:
+            # Do NOT reinstall python. Only pip packages when missing.
+            # Skip pip upgrade if packages already missing only — still try install.
+            _run_pip(["install", "--upgrade", "pip"], "upgrade-pip")
+            req = Path(__file__).parent / "requirements.txt"
+            if req.exists():
+                _run_pip(["install", "-r", str(req)], "install-requirements")
+            else:
+                _run_pip(["install"] + CORE_DEPS, "install-core-deps")
+        except subprocess.CalledProcessError:
+            install_mode_exit()
+            sys.exit(1)
+        except OSError as e:
+            _write_error(f"Dep install OS error: {e}\n")
+            install_say(f"Dep install ERROR: {e}")
+            install_mode_exit()
+            sys.exit(1)
+
+        if not _deps_importable(python_bin):
+            blob = "post-install import check failed for textual/rich\n"
+            install_say("import textual/rich: FAIL")
+            _write_error(blob)
+            install_mode_exit()
+            sys.exit(1)
+        install_say("import textual, rich: PASS")
+        _write_success("post-install import PASS\n")
+
+    # Always demonstrate each library with a real test call on screen
+    if not _run_library_demos(python_bin):
+        install_mode_exit()
+        sys.exit(1)
+
+    install_say("DEPS OK — library demos PASS")
+    install_mode_flash(n=1)
+    install_mode_exit()
+    print("  deps OK (textual, rich importable; demos passed)")
+    print(f"  success log → {paths['success']}")
+    print(f"  ops log     → {paths['ops']}")
     return python_bin
+
 
 def reexec_if_needed(venv_python: Path) -> None:
     if os.environ.get("AWESOME_LAUNCHER_VENV") != "1":
         print("Re-executing inside venv...")
+        _write_ops(f"re-exec into {venv_python}\n")
         os.environ["AWESOME_LAUNCHER_VENV"] = "1"
+        # Keep same session stamp across re-exec via env
+        os.environ["AWESOME_LAUNCHER_STAMP"] = _session_stamp()
         os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
 # -------------------------------
@@ -400,12 +801,25 @@ def replay_session(session_path: Path) -> None:
 
 def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
     # Heavy imports only after venv is ready
-    from textual.app import App, ComposeResult
-    from textual.containers import Grid, Horizontal, Vertical
-    from textual.widgets import Button, Header, Footer, Label, Static, ListView, ListItem, Input, Log
-    from textual.binding import Binding
-    from textual.reactive import reactive
-    from textual import work
+    try:
+        from textual.app import App, ComposeResult
+        from textual.screen import Screen
+        from textual.containers import Grid, Horizontal, Vertical
+        from textual.widgets import Button, Header, Footer, Label, Static, ListView, ListItem, Input, Log
+        from textual.binding import Binding
+        from textual.reactive import reactive
+        from textual import work
+    except ImportError as e:
+        paths = _bootstrap_log_paths()
+        msg = (
+            f"Textual import failed after deps claimed OK: {e}\n"
+            f"python={sys.executable}\n"
+            f"Fix: .venv/bin/python -m pip install -r requirements.txt\n"
+        )
+        print(msg)
+        _append_log(paths["error"], msg)
+        _append_log(paths["bootstrap"], msg)
+        sys.exit(1)
 
     class LauncherHome(Screen):
         """Main menu + controls screen."""
@@ -429,6 +843,8 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                         yield Button("Create Demo Zip", id="demo")
                         yield Button("Run Harness", id="run", variant="success")
                         yield Button("Library", id="library")
+                        yield Button("Gallery 6-Panel", id="gallery", variant="warning")
+                        yield Button("Effects FX", id="effects")
                         yield Button("Toggle Rec", id="rec")
                         yield Button("Save Rec", id="save_rec")
                         yield Button("Replay", id="replay")
@@ -445,7 +861,10 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             yield Footer()
 
         def on_mount(self) -> None:
-            self.app.query_one("#runlog", Log).write("[dim]Launcher ready. Scan for zips or create demo.[/dim]")
+            log = self.app.query_one("#runlog", Log)
+            log.write("[dim]Launcher ready. Scan for zips or create demo.[/dim]")
+            log.write("[magenta]Keys: G=6-panel gallery · E=effects · g=gutter · s=scan · ctrl+q=quit[/magenta]")
+            log.write("[dim]Crash logs → logs/tui_crash_*.log + logs/error_*.log (stamped)[/dim]")
 
         def on_list_view_selected(self, event) -> None:
             """Handle selection from ListView (per Olivia guide recommendation for menu)."""
@@ -456,7 +875,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                         self.app.current_zip = self.app._zips[idx]
                         sel = self.query_one("#selected", Static)
                         sel.update(f"Selected: {self.app.current_zip.name}")
-                        self.app.log(f"[cyan]ListView selected: {self.app.current_zip.name}[/cyan]")
+                        self.app.ui_log(f"[cyan]ListView selected: {self.app.current_zip.name}[/cyan]")
                 except Exception:
                     pass
 
@@ -467,14 +886,18 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             elif bid == "demo":
                 dest = Path.cwd() / self.app.config["demo"]["sample_zip_name"]
                 create_demo_menu_zip(dest)
-                self.app.log(f"[green]Demo menu created: {dest.name}[/green]")
-                self.app.log("Now press 'Go find a real menu (Scan)' or run directly.")
+                self.app.ui_log(f"[green]Demo menu created: {dest.name}[/green]")
+                self.app.ui_log("Now press 'Go find a real menu (Scan)' or run directly.")
             elif bid == "run":
                 chunk = self.query_one("#chunk", Input).value
                 endc = self.query_one("#end_chunk", Input).value
                 self.app.run_current_harness(chunk, endc)
             elif bid == "library":
                 self.app.show_library()
+            elif bid == "gallery":
+                self.app.action_open_gallery()
+            elif bid == "effects":
+                self.app.action_open_effects()
             elif bid == "rec":
                 self.app.is_recording = not self.app.is_recording
             elif bid == "save_rec":
@@ -490,9 +913,9 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
         CSS = """
         Screen { align: center middle; }
         #brand { text-style: bold; color: #00ffaa; margin: 1; }
-        #main-grid { grid-size: 3 2; grid-gutter: 1 2; padding: 1; }
+        #main-grid { grid-size: 3 4; grid-gutter: 1 1; padding: 1; }
         Button { width: 100%; height: 3; }
-        #runlog { height: 18; border: solid #444; margin: 1; }
+        #runlog { height: 14; border: solid #444; margin: 1; }
         #selected { color: #ffaa00; margin: 1 0; }
         """
 
@@ -509,12 +932,34 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             """Bind this to a key (e.g. 'g'). Per the canonical guide."""
             self.gutter_active = not self.gutter_active
 
+        def action_open_gallery(self) -> None:
+            """PR-05: six-panel layout carousel + nested menus."""
+            try:
+                from tui_chrome.gallery import GalleryScreen
+                self.push_screen(GalleryScreen())
+                self.ui_log("[magenta]Opened 6-panel gallery (Esc back · ←/→ cycle · L layout)[/magenta]")
+            except Exception as e:
+                self.ui_log(f"[red]Gallery failed: {e}[/red]")
+                _log_tui_crash(e, where="action_open_gallery")
+
+        def action_open_effects(self) -> None:
+            """PR-06: ANSI/ASCII effects demo screen."""
+            try:
+                from tui_chrome.gallery import EffectsDemoScreen
+                self.push_screen(EffectsDemoScreen())
+                self.ui_log("[magenta]Opened effects demo (Esc back)[/magenta]")
+            except Exception as e:
+                self.ui_log(f"[red]Effects failed: {e}[/red]")
+                _log_tui_crash(e, where="action_open_effects")
+
         BINDINGS = [
             Binding("ctrl+q", "quit", "Quit"),
             Binding("s", "scan_menus", "Scan"),
             Binding("r", "toggle_record", "Record"),
             Binding("ctrl+s", "save_recording", "Save Rec"),
             Binding("g", "toggle_gutter", "Toggle Gutter"),  # From Olivia guide
+            Binding("G", "open_gallery", "Gallery"),
+            Binding("e", "open_effects", "Effects"),
         ]
 
         current_zip: reactive[Optional[Path]] = reactive(None)
@@ -548,13 +993,13 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             Gutter Mode live and toggleable. Exact branding locked.
             """
             import time
-            self.call_from_thread(self.log, "[bold]=== Phase 3 Test Sequence Starting (Gutter-1) ===[/bold]")
+            self.call_from_thread(self.ui_log, "[bold]=== Phase 3 Test Sequence Starting (Gutter-1) ===[/bold]")
             
             # Auto Gutter flash on startup in test (per spec)
             self.call_from_thread(lambda: setattr(self, 'gutter_active', True))
             time.sleep(0.3)
-            self.call_from_thread(self.log, "AUTO GUTTER FLASH ON STARTUP - high heat engaged!")
-            self.call_from_thread(self.log, "Gutter Mode Engaged (level 1) - pink/black ruined styles active. Liv HUB / Olivia Dev Alpha reference: ON")
+            self.call_from_thread(self.ui_log, "AUTO GUTTER FLASH ON STARTUP - high heat engaged!")
+            self.call_from_thread(self.ui_log, "Gutter Mode Engaged (level 1) - pink/black ruined styles active. Liv HUB / Olivia Dev Alpha reference: ON")
 
             # Flash the panes in a circle + obnoxious shit
             flash_widget = None
@@ -577,15 +1022,15 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 idx = i % len(panes)
                 frame = ascii_frames[i % len(ascii_frames)]
                 msg = f"[GUTTER-{i%3+1} FLASH CIRCLE] Rotating on {panes[idx]} : {frame} !!!"
-                self.call_from_thread(self.log, msg)
+                self.call_from_thread(self.ui_log, msg)
                 
                 if flash_widget:
                     self.call_from_thread(flash_widget.update, f"PANE FLASH CIRCLE: {frame} [INTENSE]")
 
                 # Ridiculous obnoxious shit: spam + flashes + animations
                 for s in range(4):
-                    self.call_from_thread(self.log, "!!! OBNOXIOUS SHIT: GUTTER HEAT RISING !!! RUINED TEXT SMUDGE !!! PINK/BLACK INTENSE FLASH !!! SILLY ANIMATION FRAME " + str(s))
-                    self.call_from_thread(self.log, "   ASCII BANNER: GUTTER MODE ENGAGED !!!! C-64 RUINED !!!!")
+                    self.call_from_thread(self.ui_log, "!!! OBNOXIOUS SHIT: GUTTER HEAT RISING !!! RUINED TEXT SMUDGE !!! PINK/BLACK INTENSE FLASH !!! SILLY ANIMATION FRAME " + str(s))
+                    self.call_from_thread(self.ui_log, "   ASCII BANNER: GUTTER MODE ENGAGED !!!! C-64 RUINED !!!!")
                 
                 # Simulate rapid color/border flash by toggling class temporarily (intensify)
                 if i % 2 == 0:
@@ -599,22 +1044,28 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             # Restore Gutter
             self.call_from_thread(lambda: self.add_class("gutter-active"))
 
-            self.call_from_thread(self.log, "Gutter flash circle complete. Obnoxious effects + animations demonstrated.")
+            self.call_from_thread(self.ui_log, "Gutter flash circle complete. Obnoxious effects + animations demonstrated.")
             time.sleep(0.8)
             
             # "Gutter Mode Engaged" banner with flair
-            self.call_from_thread(self.log, "[bold magenta]*** GUTTER MODE ENGAGED *** PINK/BLACK RUINED C-64 FLAIR ***[/bold magenta]")
-            self.call_from_thread(self.log, "Liv HUB claim active. Olivia Dev Alpha aesthetics locked.")
+            self.call_from_thread(self.ui_log, "[bold magenta]*** GUTTER MODE ENGAGED *** PINK/BLACK RUINED C-64 FLAIR ***[/bold magenta]")
+            self.call_from_thread(self.ui_log, "Liv HUB claim active. Olivia Dev Alpha aesthetics locked.")
 
             time.sleep(1)
-            self.call_from_thread(self.log, "[bold green]Successful test - Gutter Mode verified and harness operational![/bold green]")
-            self.call_from_thread(self.log, "Full cycle demonstrated: prompt -> auto-zip -> gutter-1 -> flash circle -> obnoxious -> success exit.")
-            self.call_from_thread(self.log, "Test harness cycle complete. Exiting cleanly.")
+            self.call_from_thread(self.ui_log, "[bold green]Successful test - Gutter Mode verified and harness operational![/bold green]")
+            self.call_from_thread(self.ui_log, "Full cycle demonstrated: prompt -> auto-zip -> gutter-1 -> flash circle -> obnoxious -> success exit.")
+            self.call_from_thread(self.ui_log, "Test harness cycle complete. Exiting cleanly.")
             time.sleep(2)
             self.call_from_thread(self.exit)
 
         def watch_current_zip(self, zip_path: Optional[Path]) -> None:
-            sel = self.query_one("#selected", Static)
+            # Guard: reactive may fire in __init__ before any screen is mounted
+            try:
+                if not self.is_mounted:
+                    return
+                sel = self.query_one("#selected", Static)
+            except Exception:
+                return
             if zip_path:
                 sel.update(f"Selected: {zip_path.name} (extracted on run)")
             else:
@@ -622,12 +1073,14 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def watch_is_recording(self, recording: bool) -> None:
             try:
+                if not self.is_mounted:
+                    return
                 btn = self.query_one("#rec", Button)
                 btn.label = "Recording: ON" if recording else "Toggle Recording"
             except Exception:
                 pass
 
-        def log(self, msg: str) -> None:
+        def ui_log(self, msg: str) -> None:
             try:
                 lw = self.query_one("#runlog", Log)
                 if hasattr(lw, "write_line"):
@@ -651,21 +1104,21 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def action_toggle_record(self) -> None:
             self.is_recording = not self.is_recording
-            self.log(f"[bold]{'RECORDING ON' if self.is_recording else 'RECORDING OFF'}[/bold]")
+            self.ui_log(f"[bold]{'RECORDING ON' if self.is_recording else 'RECORDING OFF'}[/bold]")
 
         def action_save_recording(self) -> None:
             if not self.recording:
-                self.log("[yellow]No actions recorded yet.[/yellow]")
+                self.ui_log("[yellow]No actions recorded yet.[/yellow]")
                 return
             out = save_recording(self.dirs["sessions"], self.recording)
-            self.log(f"[green]Saved recording: {out.name}[/green]")
+            self.ui_log(f"[green]Saved recording: {out.name}[/green]")
             self.recording.clear()
 
         def scan_for_zips(self) -> None:
             zips = find_menu_zips(self.config.get("menu_search_paths", []))
-            self.log(f"Scanned. Found {len(zips)} menu zip(s).")
+            self.ui_log(f"Scanned. Found {len(zips)} menu zip(s).")
             if not zips:
-                self.log("[yellow]No zips found. Use 'Create Demo Menu Zip' first.[/yellow]")
+                self.ui_log("[yellow]No zips found. Use 'Create Demo Menu Zip' first.[/yellow]")
                 return
 
             try:
@@ -678,37 +1131,37 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                     lv.index = 0  # select first per guide-friendly list behavior
             except Exception:
                 for i, z in enumerate(zips[:5]):
-                    self.log(f"  [{i+1}] {z.name}")
+                    self.ui_log(f"  [{i+1}] {z.name}")
 
             self.current_zip = zips[0]
-            self.log(f"[cyan]Selected: {self.current_zip.name}[/cyan]")
+            self.ui_log(f"[cyan]Selected: {self.current_zip.name}[/cyan]")
 
         # Button handling lives in LauncherHome screen (forwards to app)
 
         def show_library(self) -> None:
             menus_dir = self.dirs["menus"]
             if not menus_dir.exists():
-                self.log("No extracted menus yet.")
+                self.ui_log("No extracted menus yet.")
                 return
             entries = list(menus_dir.glob("*"))
-            self.log("Extracted menus / library:")
+            self.ui_log("Extracted menus / library:")
             for e in entries:
-                self.log(f"  - {e.name}")
+                self.ui_log(f"  - {e.name}")
             if not entries:
-                self.log("(empty - extract a zip first)")
+                self.ui_log("(empty - extract a zip first)")
 
         def replay_last(self) -> None:
             sessions = sorted(self.dirs["sessions"].glob("session_*.json"), reverse=True)
             if not sessions:
-                self.log("[yellow]No session files found.[/yellow]")
+                self.ui_log("[yellow]No session files found.[/yellow]")
                 return
             latest = sessions[0]
-            self.log(f"Replaying {latest.name} (non-interactive)...")
+            self.ui_log(f"Replaying {latest.name} (non-interactive)...")
             try:
                 replay_session(latest)
-                self.log("[green]Replay done.[/green]")
+                self.ui_log("[green]Replay done.[/green]")
             except Exception as e:
-                self.log(f"[red]Replay error: {e}[/red]")
+                self.ui_log(f"[red]Replay error: {e}[/red]")
 
         # Live harness runner (Phase 2 streaming per Olivia guide - line by line to Log)
         def _run_harness_live(self, extracted_dir: Path, main_script: str, chunk: Optional[str], log_dir: Path) -> Dict[str, Any]:
@@ -716,7 +1169,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             if not harness.exists():
                 harness = extracted_dir / "harness.py"
             if not harness.exists():
-                self.call_from_thread(self.log, "[red]No harness found[/red]")
+                self.call_from_thread(self.ui_log, "[red]No harness found[/red]")
                 return {"returncode": 1, "exit_level": 1, "chunk": chunk}
 
             log_dir.mkdir(parents=True, exist_ok=True)
@@ -725,7 +1178,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 cmd += ["--chunk", chunk]
             cmd += ["--log-dir", str(log_dir)]
 
-            self.call_from_thread(self.log, f"$ {' '.join(cmd)}")
+            self.call_from_thread(self.ui_log, f"$ {' '.join(cmd)}")
 
             try:
                 import subprocess
@@ -740,18 +1193,18 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 for line in proc.stdout:
                     line = line.rstrip("\n")
                     if line:
-                        self.call_from_thread(self.log, line)
+                        self.call_from_thread(self.ui_log, line)
                 proc.wait()
                 rc = proc.returncode
                 level = 0 if rc == 0 else (2 if rc == 2 else 1)
-                self.call_from_thread(self.log, f"[Process exited with code {rc}]")
+                self.call_from_thread(self.ui_log, f"[Process exited with code {rc}]")
                 return {
                     "returncode": rc,
                     "exit_level": level,
                     "chunk": chunk,
                 }
             except Exception as e:
-                self.call_from_thread(self.log, f"[red]Stream error: {e}[/red]")
+                self.call_from_thread(self.ui_log, f"[red]Stream error: {e}[/red]")
                 return {"returncode": 1, "exit_level": 1, "chunk": chunk}
 
         # Main run action - attached to a dynamic button or we trigger via code
@@ -759,11 +1212,11 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             if not self.current_zip:
                 self.scan_for_zips()
                 if not self.current_zip:
-                    self.log("[red]No menu selected. Create demo or scan first.[/red]")
+                    self.ui_log("[red]No menu selected. Create demo or scan first.[/red]")
                     return
 
             extracted, main_script = extract_menu_zip(self.current_zip, self.dirs["menus"])
-            self.log(f"[cyan]Extracted {self.current_zip.name} -> {extracted.name}[/cyan]")
+            self.ui_log(f"[cyan]Extracted {self.current_zip.name} -> {extracted.name}[/cyan]")
 
             start_c = chunk.strip() or None
             end_c = end_chunk.strip() or None
@@ -774,7 +1227,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 "end_chunk": end_c
             })
 
-            self.log(f"[bold]Running harness[/bold] chunk={start_c or 'default'} range_end={end_c or '-'} ...")
+            self.ui_log(f"[bold]Running harness[/bold] chunk={start_c or 'default'} range_end={end_c or '-'} ...")
 
             @work(exclusive=True, thread=True)
             def _do_run() -> None:
@@ -794,7 +1247,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                                     break
                                 current += datetime.timedelta(days=1)
                         except Exception as e:
-                            self.call_from_thread(self.log, f"[red]Date range error: {e}[/red]")
+                            self.call_from_thread(self.ui_log, f"[red]Date range error: {e}[/red]")
                     else:
                         chunk = start_c or end_c
                         res = self._run_harness_live(extracted, main_script, chunk, self.dirs["logs"])
@@ -804,14 +1257,14 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                         level = r.get("exit_level", 1)
                         color = "green" if level == 0 else ("yellow" if level == 2 else "red")
                         self.call_from_thread(
-                            self.log,
+                            self.ui_log,
                             f"[{color}]Chunk {r.get('chunk') or 'full'}: exit_level={level} rc={r.get('returncode')}[/{color}]"
                         )
                     overall = max((r.get("exit_level", 0) for r in results), default=0)
-                    self.call_from_thread(self.log, f"[bold]Overall exit level: {overall}[/bold]  (0=done,1=error,2=partial)")
-                    self.call_from_thread(self.log, "See logs/ for processing.log + error.log + run_summary.json")
+                    self.call_from_thread(self.ui_log, f"[bold]Overall exit level: {overall}[/bold]  (0=done,1=error,2=partial)")
+                    self.call_from_thread(self.ui_log, "See logs/ for processing.log + error.log + run_summary.json")
                 except Exception as ex:
-                    self.call_from_thread(self.log, f"[red]Run error: {ex}[/red]")
+                    self.call_from_thread(self.ui_log, f"[red]Run error: {ex}[/red]")
 
             _do_run()
 
@@ -825,11 +1278,53 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
     # Boot the app
     dirs = ensure_dirs(cfg)
     app = AwesomeLauncherApp(cfg, dirs)
-    # Add a run button on the home by monkey a bit or just tell user
-    # For clean: we can add the run button in compose, but for simplicity we document in log
-    # Users can use the chunk inputs + submit to run, or we expose via key.
-    # Add a global run action
-    app.run()
+    try:
+        app.run()
+    except Exception as e:
+        _log_tui_crash(e, where="app.run")
+        raise
+
+# -------------------------------
+# CRASH LOGGING (PR-03)
+# -------------------------------
+
+def _log_tui_crash(exc: BaseException, where: str = "unknown") -> None:
+    """Write traceback to stamped + latest crash/error logs under logs/."""
+    import traceback
+    paths = _bootstrap_log_paths()
+    crash_path = paths["crash"]
+    crash_latest = paths["crash_latest"]
+    tb = traceback.format_exc()
+    blob = (
+        f"where={where}\n"
+        f"type={type(exc).__name__}\n"
+        f"msg={exc}\n"
+        f"python={sys.executable}\n"
+        f"cwd={os.getcwd()}\n"
+        f"stamp={paths.get('stamp', _session_stamp())}\n"
+        f"{tb}\n"
+    )
+    _append_log(crash_path, blob, crash_latest)
+    _append_log(
+        paths["error"],
+        f"TUI CRASH\n{blob}",
+        paths["error_latest"],
+        paths["ops"],
+        paths["ops_latest"],
+    )
+    _append_log(
+        paths["bootstrap"],
+        f"TUI CRASH at {where}: {exc}\n",
+        paths["bootstrap_latest"],
+    )
+    print("\n*** TUI CRASH ***", file=sys.stderr)
+    print(f"  {type(exc).__name__}: {exc}", file=sys.stderr)
+    print(f"  crash log → {crash_path}", file=sys.stderr)
+    print(f"  crash latest → {crash_latest}", file=sys.stderr)
+    print(f"  error log → {paths['error']}", file=sys.stderr)
+    print(f"  error latest → {paths['error_latest']}", file=sys.stderr)
+    print(tb, file=sys.stderr)
+
 
 # -------------------------------
 # MAIN
@@ -895,7 +1390,19 @@ def main() -> None:
     # Inside venv (or already good)
     cfg = load_config()
     ensure_dirs(cfg)
-    launch_launcher_tui(cfg)
+    _write_ops(f"launching TUI app config branding={cfg.get('branding', {}).get('header')!r}\n")
+    try:
+        launch_launcher_tui(cfg)
+        _write_success("TUI session exited cleanly (app.run returned)\n")
+    except Exception as e:
+        _log_tui_crash(e, where="launch_launcher_tui")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:
+        _log_tui_crash(e, where="main")
+        sys.exit(1)
