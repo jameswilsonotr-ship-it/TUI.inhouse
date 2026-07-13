@@ -50,7 +50,7 @@ CORE_DEPS = ["textual", "rich"]
 # Session stamp: one timestamp per process for all log files in this run
 _SESSION_STAMP: Optional[str] = None
 _INSTALL_MODE_ACTIVE = False
-_SAVED_TTY_COLS: Optional[str] = None
+# Never mutate stty cols on WSL/Windows Terminal — that bricks keyboard after alt-tab.
 
 
 def _session_stamp() -> str:
@@ -140,8 +140,10 @@ def _write_error(msg: str) -> None:
     _append_log(paths["bootstrap"], f"ERROR: {msg}", paths["bootstrap_latest"])
 
 
-# ---- Install-mode terminal: 40 cols, black screen, white fonts, flashes ----
-# Key words stay colored (PASS/FAIL/OK/textual/rich/…).
+# ---- Install-mode terminal (SAFE for WSL / Windows Terminal) ----
+# Visual only: soft-wrap to ~40 cols, black/white line style, brief flashes.
+# NEVER call stty cols / never leave reverse-video or alt-screen stuck.
+# Full-screen clear + stty cols 40 was bricking keyboard after alt-tab.
 
 _INSTALL_WIDTH = 40
 _KEY_COLOR_MAP = (
@@ -160,12 +162,17 @@ _KEY_COLOR_MAP = (
 
 
 def _colorize_keys(line: str) -> str:
-    """Color key tokens; rest stays white on black."""
+    """Color key tokens; rest stays white on black for the line only."""
     import re as _re
 
     out = line
     for pat, color in _KEY_COLOR_MAP:
-        out = _re.sub(pat, lambda m, c=color: f"{c}{m.group(0)}\033[37m", out, flags=_re.IGNORECASE)
+        out = _re.sub(
+            pat,
+            lambda m, c=color: f"{c}{m.group(0)}\033[37m",
+            out,
+            flags=_re.IGNORECASE,
+        )
     return out
 
 
@@ -185,72 +192,144 @@ def _wrap40(text: str, width: int = _INSTALL_WIDTH) -> List[str]:
     return lines
 
 
+def _tty_hard_reset() -> None:
+    """Best-effort restore so Ctrl-C / keyboard / Textual work after install UX.
+
+    Does NOT change column count (stty cols breaks WSL focus after alt-tab).
+    Does: SGR reset, show cursor, leave alt screen, reset scroll region,
+    and `stty sane` if stdin is a TTY (recovers cooked mode without resizing).
+    """
+    try:
+        # Reset attributes, show cursor, main buffer, clear sticky modes
+        sys.stdout.write(
+            "\033[0m"  # SGR reset
+            "\033[?25h"  # show cursor
+            "\033[?1049l"  # leave alternate screen if any
+            "\033[?47l"
+            "\033[r"  # reset scroll region
+            "\033[27m"  # reverse off
+            "\n"
+        )
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        if sys.stdin.isatty():
+            # sane restores echo/icanon/etc without forcing cols=40
+            subprocess.run(
+                ["stty", "sane"],
+                stdin=sys.stdin,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1,
+            )
+    except Exception:
+        pass
+
+
 def install_mode_enter() -> None:
-    """Black screen, white fonts, ~40 columns, a few flashes. Key text stays colored."""
-    global _INSTALL_MODE_ACTIVE, _SAVED_TTY_COLS
+    """40-col *soft* black/white install UX. Never mutates terminal size."""
+    global _INSTALL_MODE_ACTIVE
     if _INSTALL_MODE_ACTIVE:
         return
     _INSTALL_MODE_ACTIVE = True
-    # Try to set terminal columns (best-effort; WSL/console may ignore)
+    # Register cleanup so Ctrl-C / crash still restores TTY
     try:
-        if sys.stdin.isatty():
-            r = subprocess.run(
-                ["stty", "size"], capture_output=True, text=True, timeout=1
-            )
-            if r.returncode == 0 and r.stdout.strip():
-                parts = r.stdout.strip().split()
-                if len(parts) >= 2:
-                    _SAVED_TTY_COLS = parts[1]
-            subprocess.run(["stty", "cols", "40"], capture_output=True, timeout=1)
+        import atexit
+
+        atexit.register(install_mode_exit)
     except Exception:
         pass
-    # Black bg + white fg + clear
-    sys.stdout.write("\033[40m\033[37m\033[2J\033[H")
-    sys.stdout.flush()
-    install_mode_flash(n=3)
+    try:
+        import signal
+
+        def _sig_restore(signum, frame):  # type: ignore[no-untyped-def]
+            install_mode_exit()
+            _tty_hard_reset()
+            # re-raise default behavior
+            signal.signal(signum, signal.SIG_DFL)
+            os.kill(os.getpid(), signum)
+
+        if hasattr(signal, "SIGINT"):
+            signal.signal(signal.SIGINT, _sig_restore)
+        if hasattr(signal, "SIGTERM"):
+            signal.signal(signal.SIGTERM, _sig_restore)
+    except Exception:
+        pass
+
+    # Soft banner only — NO full-screen clear, NO stty cols
+    # (clear + stty cols left WSL black/unresponsive after alt-tab)
+    print()
+    install_say("========================================")
     install_say("INSTALL MODE · 40 COL · BLACK/WHITE")
+    install_say("soft wrap only — TTY size untouched")
+    install_say("Ctrl-C aborts · keys stay live")
+    install_say("========================================")
+    install_mode_flash(n=2)
     install_say("Key words stay colored. DEPS check next.")
 
 
 def install_mode_flash(n: int = 2) -> None:
-    """A few reverse-video screen flashes."""
-    for _ in range(n):
-        sys.stdout.write("\033[7m")  # reverse
+    """Brief reverse-video flashes; ALWAYS ends with reverse-off + SGR reset."""
+    if not sys.stdout.isatty():
+        return
+    for _ in range(max(0, n)):
+        try:
+            # Flash one banner line only (not whole sticky reverse mode)
+            sys.stdout.write("\033[7m\033[40m\033[37m ***           *** \033[0m\r")
+            sys.stdout.flush()
+            time.sleep(0.05)
+            sys.stdout.write("\033[0m\033[40m\033[37m *** FLASH *** \033[0m\r")
+            sys.stdout.flush()
+            time.sleep(0.05)
+        except Exception:
+            break
+    try:
+        sys.stdout.write("\033[0m\033[27m\033[K\n")
         sys.stdout.flush()
-        time.sleep(0.06)
-        sys.stdout.write("\033[27m\033[40m\033[37m")
-        sys.stdout.flush()
-        time.sleep(0.05)
+    except Exception:
+        pass
 
 
 def install_say(msg: str, *, key: bool = True) -> None:
-    """Print in install mode (40-col wrap, white body, colored keys)."""
-    prefix = "\033[40m\033[37m" if _INSTALL_MODE_ACTIVE else ""
-    reset = "\033[0m" if not _INSTALL_MODE_ACTIVE else ""
+    """Print in install mode (40-col wrap). Each line ends with full SGR reset."""
     for raw in _wrap40(msg):
-        body = _colorize_keys(raw) if key else raw
-        print(f"{prefix}{body}{reset}")
-    sys.stdout.flush()
+        if _INSTALL_MODE_ACTIVE:
+            body = _colorize_keys(raw) if key else raw
+            # per-line black bg / white fg, then hard reset so nothing sticks
+            print(f"\033[40m\033[37m{body}\033[0m")
+        else:
+            body = _colorize_keys(raw) if key else raw
+            print(body)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 def install_mode_exit() -> None:
-    """Restore terminal a bit after install UX (leave colors usable for TUI)."""
-    global _INSTALL_MODE_ACTIVE, _SAVED_TTY_COLS
+    """Fully restore terminal after install UX so Textual + keyboard work."""
+    global _INSTALL_MODE_ACTIVE
     if not _INSTALL_MODE_ACTIVE:
+        # Still hard-reset if called defensively before TUI
         return
-    if _SAVED_TTY_COLS:
-        try:
-            subprocess.run(
-                ["stty", "cols", str(_SAVED_TTY_COLS)],
-                capture_output=True,
-                timeout=1,
-            )
-        except Exception:
-            pass
-        _SAVED_TTY_COLS = None
-    sys.stdout.write("\033[0m\n")
-    sys.stdout.flush()
     _INSTALL_MODE_ACTIVE = False
+    # Hand SIGINT/SIGTERM back so Textual can handle quit bindings
+    try:
+        import signal
+
+        if hasattr(signal, "SIGINT"):
+            signal.signal(signal.SIGINT, signal.SIG_DFL)
+        if hasattr(signal, "SIGTERM"):
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    except Exception:
+        pass
+    _tty_hard_reset()
+    try:
+        print("\033[0m[install mode end — terminal restored]\033[0m")
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 def _venv_python(venv_path: Path) -> Path:
@@ -1275,14 +1354,25 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 endc = self.query_one("#end_chunk", Input).value
                 self.run_current_harness(chunk, endc)
 
-    # Boot the app
+    # Boot the app — hard-reset TTY first so WSL/WT keyboard works
+    # (install mode must never leave reverse-video / bad stty behind)
+    install_mode_exit()
+    _tty_hard_reset()
     dirs = ensure_dirs(cfg)
     app = AwesomeLauncherApp(cfg, dirs)
     try:
         app.run()
+    except KeyboardInterrupt:
+        _tty_hard_reset()
+        print("\n[interrupted — terminal restored]", file=sys.stderr)
+        raise
     except Exception as e:
+        _tty_hard_reset()
         _log_tui_crash(e, where="app.run")
         raise
+    finally:
+        # Textual normally restores; belt-and-suspenders for WSL after alt-tab kill
+        _tty_hard_reset()
 
 # -------------------------------
 # CRASH LOGGING (PR-03)

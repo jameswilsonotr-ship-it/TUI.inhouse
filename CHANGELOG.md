@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.1.2] - 2026-07-13 - Safe install UX (no TTY brick on WSL)
+
+### Fixed
+- **Black screen / dead keyboard after alt-tab on WSL:** install mode no longer runs `stty cols 40` or full-screen clear (`\033[2J`). Those left Windows Terminal unresponsive (no Ctrl-C). Soft 40-col wrap + per-line colors only.
+- Hard TTY restore (`SGR reset`, show cursor, leave alt-screen, `stty sane`) on install exit, before Textual `app.run()`, on interrupt/crash, and in `install.sh` around launch.
+- Ctrl-C during install mode restores terminal instead of leaving reverse-video stuck.
+
 ## [0.1.1] - 2026-07-13 - Install UX, log shadow crash fix, stamped logs
 
 ### Fixed

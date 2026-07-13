@@ -100,40 +100,51 @@ step_pass() {
   log_success "step $name PASS"
 }
 
-# --- Install mode: 40 cols, black screen, white fonts, flashes; key text colored ---
+# --- Install mode (SAFE): soft 40-col wrap, black/white lines, brief flashes ---
+# NEVER stty cols / NEVER full-screen clear — those brick WSL keyboard after alt-tab.
+tty_hard_reset() {
+  printf '\033[0m\033[?25h\033[?1049l\033[?47l\033[r\033[27m\n' 2>/dev/null || true
+  if [[ -t 0 ]] && command -v stty >/dev/null 2>&1; then
+    stty sane 2>/dev/null || true
+  fi
+}
+
 install_mode_enter() {
   [[ "$QUIET" -eq 1 ]] && return 0
   [[ "$INSTALL_MODE" -eq 1 ]] && return 0
   INSTALL_MODE=1
-  if [[ -t 1 ]] && command -v stty >/dev/null 2>&1; then
-    SAVED_COLS="$(stty size 2>/dev/null | awk '{print $2}')" || SAVED_COLS=""
-    stty cols 40 2>/dev/null || true
-  fi
-  # black bg, white fg, clear
-  printf '\033[40m\033[37m\033[2J\033[H'
-  install_flash 3
+  trap 'install_mode_exit; tty_hard_reset; exit 130' INT TERM
+  echo
+  install_say "========================================"
   install_say "INSTALL MODE · 40 COL · BLACK/WHITE"
-  install_say "Key words stay colored. stamp=$STAMP"
+  install_say "soft wrap only — TTY size untouched"
+  install_say "Ctrl-C aborts · keys stay live"
+  install_say "stamp=$STAMP"
+  install_say "========================================"
+  install_flash 2
+  install_say "Key words stay colored. DEPS check next."
 }
 
 install_mode_exit() {
   [[ "$INSTALL_MODE" -eq 0 ]] && return 0
-  if [[ -n "${SAVED_COLS:-}" ]] && command -v stty >/dev/null 2>&1; then
-    stty cols "$SAVED_COLS" 2>/dev/null || true
-  fi
-  printf '\033[0m\n'
   INSTALL_MODE=0
+  trap - INT TERM
+  tty_hard_reset
+  echo "[install mode end — terminal restored]"
 }
 
 install_flash() {
   local n="${1:-2}" i
   [[ "$QUIET" -eq 1 ]] && return 0
+  [[ -t 1 ]] || return 0
   for ((i=0; i<n; i++)); do
-    printf '\033[7m'
-    sleep 0.06
-    printf '\033[27m\033[40m\033[37m'
+    # line flash only — always ends with full SGR reset (no sticky reverse)
+    printf '\033[7m\033[40m\033[37m ***           *** \033[0m\r'
+    sleep 0.05
+    printf '\033[0m\033[40m\033[37m *** FLASH *** \033[0m\r'
     sleep 0.05
   done
+  printf '\033[0m\033[27m\033[K\n'
 }
 
 # Color key tokens; body stays white. Wrap ~40 cols for display.
@@ -157,7 +168,7 @@ install_say() {
 
 _install_print_line() {
   local s="$1"
-  # key words → color, rest white on black
+  # key words → color, rest white on black; each line ends with full SGR reset
   s="$(printf '%s' "$s" | sed -E \
     -e 's/\b(FAIL(ED|URE)?|ERROR)\b/\x1b[91m\1\x1b[37m/gi' \
     -e 's/\b(PASS(ED)?|OK|SUCCESS)\b/\x1b[92m\1\x1b[37m/gi' \
@@ -432,6 +443,8 @@ step_begin "launch-tui"
 log "launching TUI (ctrl+q to quit)..."
 log "  crashes → logs/tui_crash_${STAMP}.log + logs/error_${STAMP}.log"
 log "  success → logs/success_${STAMP}.log + logs/ops_${STAMP}.log"
+install_mode_exit
+tty_hard_reset
 # re-exec inside venv; launcher will also bootstrap if needed
 export AWESOME_LAUNCHER_VENV=1
 export AWESOME_LAUNCHER_STAMP="$STAMP"
@@ -439,6 +452,7 @@ set +e
 "$VPY" "$ROOT/AWESOME_LAUNCHER_OF_TUIDOOM.py"
 rc=$?
 set -e
+tty_hard_reset
 if [[ $rc -ne 0 ]]; then
   log "TUI exited rc=$rc"
   echo "--- tail $ERR_LATEST ---" | tee -a "$BOOT_LOG"
