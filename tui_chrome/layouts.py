@@ -99,3 +99,71 @@ def layout_description(mode: str) -> str:
         "main_sidebar": "one large main (p0) · sidebar stack p1–p5",
         "two_plus_row": "two on top · four along bottom row",
     }.get(mode, mode)
+
+
+def mount_layout(
+    root,
+    mode: str,
+    panel_widgets: Sequence,
+    *,
+    Grid,
+    Horizontal,
+    Vertical,
+) -> None:
+    """Mount `panel_widgets` (len 6) into `root` using a gallery LAYOUT_MODE.
+
+    Shared by GalleryScreen and OliviaSixPanelDemo so layout keys stay in sync.
+    Callers pass Textual container classes (avoids hard import at module load).
+    """
+    root.remove_children()
+    panels = list(panel_widgets)
+    if len(panels) < 6:
+        raise ValueError("mount_layout expects 6 panel widgets")
+
+    if mode == "six_grid":
+        grid = Grid(id="gallery-grid")
+        root.mount(grid)
+        for w in panels:
+            grid.mount(w)
+
+    elif mode == "three_vertical":
+        cols = Horizontal(id="gallery-cols")
+        root.mount(cols)
+        for col_i in range(3):
+            col = Vertical()
+            cols.mount(col)
+            for row in range(2):
+                col.mount(panels[col_i * 2 + row])
+
+    elif mode == "two_stack_h":
+        row = Horizontal(id="gallery-twoh")
+        root.mount(row)
+        left = Vertical()
+        right = Horizontal()
+        row.mount(left)
+        row.mount(right)
+        left.mount(panels[0])
+        left.mount(panels[1])
+        for i in range(2, 6):
+            right.mount(panels[i])
+
+    elif mode == "main_sidebar":
+        row = Horizontal(id="gallery-main")
+        root.mount(row)
+        main = Vertical(id="main-big")
+        side = Vertical(id="side-stack")
+        row.mount(main)
+        row.mount(side)
+        main.mount(panels[0])
+        for i in range(1, 6):
+            side.mount(panels[i])
+
+    else:  # two_plus_row (default fallback)
+        top = Horizontal()
+        bot = Horizontal()
+        root.mount(top)
+        root.mount(bot)
+        top.mount(panels[0])
+        top.mount(panels[1])
+        for i in range(2, 6):
+            bot.mount(panels[i])

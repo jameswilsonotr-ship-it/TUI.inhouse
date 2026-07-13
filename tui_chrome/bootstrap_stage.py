@@ -49,6 +49,61 @@ SPINNER_CLASSIC = list("|/-\\")
 STAGE_A_WIDTH = 40
 STAGE_B_WIDTH = 80
 
+# Theater modes (env):
+#   AWESOME_BOOTSTRAP_QUIET=1  → no flash/spinner/clear; one-line steps only
+#   AWESOME_BOOTSTRAP_FAST=1   → shorter spins / fewer flash frames
+#   AWESOME_BOOTSTRAP_QUIET=1 + FAST both work together
+#   AWESOME_BOOTSTRAP_SKIP_DEMOS=1 → Stage B import-only (still tests, no art)
+
+
+def theater_quiet() -> bool:
+    return os.environ.get("AWESOME_BOOTSTRAP_QUIET", "").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def theater_fast() -> bool:
+    return os.environ.get("AWESOME_BOOTSTRAP_FAST", "").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ) or theater_quiet()  # quiet implies fast timings
+
+
+def theater_skip_demo_art() -> bool:
+    return theater_quiet() or os.environ.get(
+        "AWESOME_BOOTSTRAP_SKIP_DEMOS", ""
+    ).strip() in ("1", "true", "yes", "on")
+
+
+def _spin_ticks() -> int:
+    if theater_quiet():
+        return 0
+    if theater_fast():
+        return 4
+    return 10
+
+
+def _spin_delay() -> float:
+    if theater_quiet():
+        return 0.0
+    if theater_fast():
+        return 0.02
+    return 0.04
+
+
+def _flash_frames() -> int:
+    if theater_quiet():
+        return 0
+    if theater_fast():
+        return 2
+    return 4
+
+
 # Exact install step theater (informative, ordered)
 STAGE_A_STEPS: List[Tuple[str, str]] = [
     ("A1", "blank canvas · black void"),
@@ -198,18 +253,42 @@ def spin_work(
 # ---------------------------------------------------------------------------
 
 def stage_a_enter() -> None:
-    """FIRST THING: blank screen, persistent black bg, white text, 40 cols soft."""
+    """FIRST THING: blank screen, persistent black bg, white text, 40 cols soft.
+
+    QUIET: no full clear / flash — one banner line only (faster boots).
+    """
     tty_hard_reset()
-    # One clear to blank canvas (then we only print — no stty cols)
+    if theater_quiet():
+        mode = "QUIET"
+        if theater_fast():
+            mode = "QUIET+FAST"
+        stage_line(
+            f"STAGE A · {mode} · black/white 40-col",
+            width=STAGE_A_WIDTH,
+            bg=BLACK_BG,
+            fg=BRIGHT_WHITE,
+            key=False,
+        )
+        return
+    # Full theater: clear + flash + banner
     try:
         sys.stdout.write(f"{BLACK_BG}{WHITE}\033[2J\033[H{RESET}")
         sys.stdout.flush()
     except Exception:
         pass
-    _blank_flash(BLACK_BG, BRIGHT_WHITE, STAGE_A_WIDTH, frames=4)
+    frames = _flash_frames()
+    if frames:
+        _blank_flash(BLACK_BG, BRIGHT_WHITE, STAGE_A_WIDTH, frames=frames)
     stage_line("╔══════════════════════════════════════╗", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=BRIGHT_WHITE, key=False)
     stage_line("║  AWESOME LAUNCHER · STAGE A          ║", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=BRIGHT_WHITE, key=False)
-    stage_line("║  black · white · 40 col · soft wrap  ║", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=WHITE, key=False)
+    tag = " FAST" if theater_fast() else ""
+    stage_line(
+        f"║  black · white · 40 col{tag}          ║",
+        width=STAGE_A_WIDTH,
+        bg=BLACK_BG,
+        fg=WHITE,
+        key=False,
+    )
     stage_line("╚══════════════════════════════════════╝", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=BRIGHT_WHITE, key=False)
     stage_line("double Ctrl-C always force-kills", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=DIM + WHITE)
     stage_line("", width=STAGE_A_WIDTH, bg=BLACK_BG, key=False)
@@ -233,35 +312,65 @@ def stage_a_step(step_id: str, label: str, phase: str = "RUNNING") -> None:
 def run_stage_a_steps(
     hooks: Optional[dict] = None,
 ) -> None:
-    """Play Stage A install theater. hooks map step_id -> callable (optional real work)."""
+    """Play Stage A install theater. hooks map step_id -> callable (optional real work).
+
+    Respects AWESOME_BOOTSTRAP_QUIET / AWESOME_BOOTSTRAP_FAST.
+    """
     hooks = hooks or {}
     stage_a_enter()
-    stage_line("install steps · dependencies", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=CYAN)
+    if not theater_quiet():
+        stage_line("install steps · dependencies", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=CYAN)
+    ticks = _spin_ticks()
+    delay = _spin_delay()
     for step_id, label in STAGE_A_STEPS:
+        if theater_quiet():
+            # single line RUNNING→PASS (no spinner)
+            fn = hooks.get(step_id)
+            try:
+                if fn:
+                    fn()
+                stage_a_step(step_id, label, "PASS")
+            except Exception as e:
+                stage_a_step(step_id, f"{label} ({e})", "FAIL")
+                raise
+            continue
+
         stage_a_step(step_id, label, "RUNNING")
         fn = hooks.get(step_id)
         try:
             if fn:
-                spin_work(
-                    f"{step_id} {label}",
-                    fn,
-                    width=STAGE_A_WIDTH,
-                    bg=BLACK_BG,
-                    ticks=10,
-                )
+                if ticks <= 0:
+                    fn()
+                else:
+                    spin_work(
+                        f"{step_id} {label}",
+                        fn,
+                        width=STAGE_A_WIDTH,
+                        bg=BLACK_BG,
+                        ticks=ticks,
+                        delay=delay,
+                    )
             else:
-                # pure theater tick
-                for i in range(8):
+                for i in range(max(1, ticks)):
                     spin_once(i, f"{step_id} {label}", width=STAGE_A_WIDTH, bg=BLACK_BG)
-                    time.sleep(0.035)
+                    if delay:
+                        time.sleep(delay)
                 sys.stdout.write(f"\r{RESET}\033[K")
                 sys.stdout.flush()
             stage_a_step(step_id, label, "PASS")
         except Exception as e:
             stage_a_step(step_id, f"{label} ({e})", "FAIL")
             raise
-    stage_line("stage A comfortable · flashing to blue…", width=STAGE_A_WIDTH, bg=BLACK_BG, fg=GREEN)
-    time.sleep(0.15)
+    stage_line(
+        "stage A comfortable · flashing to blue…"
+        if not theater_quiet()
+        else "stage A done → blue demos",
+        width=STAGE_A_WIDTH,
+        bg=BLACK_BG,
+        fg=GREEN,
+    )
+    if not theater_quiet():
+        time.sleep(0.08 if theater_fast() else 0.15)
 
 
 # ---------------------------------------------------------------------------
@@ -270,9 +379,19 @@ def run_stage_a_steps(
 
 def stage_b_enter() -> None:
     """Comfort flash → dark blue background, 80-col soft wrap."""
-    _blank_flash(BLUE_BG, BRIGHT_WHITE, STAGE_B_WIDTH, frames=4)
+    if theater_quiet():
+        stage_line(
+            "STAGE B · QUIET · library API checks",
+            width=STAGE_B_WIDTH,
+            bg=BLUE_BG,
+            fg=BRIGHT_WHITE,
+            key=False,
+        )
+        return
+    frames = _flash_frames()
+    if frames:
+        _blank_flash(BLUE_BG, BRIGHT_WHITE, STAGE_B_WIDTH, frames=frames)
     try:
-        # re-paint feel without hard geometry change
         sys.stdout.write(f"{BLUE_BG}{WHITE}\033[2J\033[H{RESET}")
         sys.stdout.flush()
     except Exception:
@@ -284,8 +403,9 @@ def stage_b_enter() -> None:
         fg=BRIGHT_WHITE,
         key=False,
     )
+    tag = " FAST" if theater_fast() else ""
     stage_line(
-        "║  STAGE B · dark blue · 80 col · library demos (real tests)                 ║",
+        f"║  STAGE B · dark blue · 80 col · library demos (real tests){tag}          ║",
         width=STAGE_B_WIDTH,
         bg=BLUE_BG,
         fg=BRIGHT_WHITE,
@@ -450,6 +570,8 @@ print(json.dumps(results))
         return False
 
     all_ok = True
+    spin_n = 0 if theater_skip_demo_art() else (3 if theater_fast() else 6)
+    spin_d = 0.0 if theater_quiet() else (0.015 if theater_fast() else 0.03)
     for i, r in enumerate(results):
         name = r.get("name", "?")
         ok = bool(r.get("ok"))
@@ -457,21 +579,35 @@ print(json.dumps(results))
             all_ok = False
         art = r.get("art") or name
         detail = r.get("detail") or ""
-        # spinner then card
-        for t in range(6):
+        status = "PASS" if ok else "FAIL"
+        if theater_skip_demo_art():
+            # one compact line — still real tests
+            stage_line(
+                f"{'✓' if ok else '✗'} {name}: {status} — {detail}",
+                width=STAGE_B_WIDTH,
+                bg=BLUE_BG,
+                fg=WHITE,
+            )
+            continue
+        for t in range(spin_n):
             spin_once(t, f"demo {name}", width=STAGE_B_WIDTH, bg=BLUE_BG)
-            time.sleep(0.03)
+            if spin_d:
+                time.sleep(spin_d)
         sys.stdout.write(f"\r{RESET}\033[K")
         sys.stdout.flush()
         bar = _spark_bar(ok, 28, i)
-        status = "PASS" if ok else "FAIL"
         stage_line(f"┌─ {art}", width=STAGE_B_WIDTH, bg=BLUE_BG, fg=BRIGHT_WHITE, key=False)
         stage_line(f"│  {bar}  {status}", width=STAGE_B_WIDTH, bg=BLUE_BG, fg=WHITE)
         stage_line(f"└─ {detail}", width=STAGE_B_WIDTH, bg=BLUE_BG, fg=DIM + WHITE, key=False)
         stage_line("", width=STAGE_B_WIDTH, bg=BLUE_BG, key=False)
 
     if all_ok:
-        stage_line("all library demos PASS · comfortable enough for menu load", width=STAGE_B_WIDTH, bg=BLUE_BG, fg=GREEN)
+        stage_line(
+            "all library demos PASS · comfortable enough for menu load",
+            width=STAGE_B_WIDTH,
+            bg=BLUE_BG,
+            fg=GREEN,
+        )
     else:
         stage_line("one or more library demos FAIL", width=STAGE_B_WIDTH, bg=BLUE_BG, fg=RED)
     return all_ok
@@ -480,7 +616,8 @@ print(json.dumps(results))
 def stage_b_exit_to_tui() -> None:
     """Leave blue stage cleanly before Textual takes the TTY."""
     stage_line("handing off to TUI…", width=STAGE_B_WIDTH, bg=BLUE_BG, fg=CYAN)
-    time.sleep(0.08)
+    if not theater_quiet():
+        time.sleep(0.04 if theater_fast() else 0.08)
     tty_hard_reset()
 
 
@@ -488,11 +625,8 @@ def run_full_bootstrap_theater(
     python_bin: Path,
     *,
     hooks_a: Optional[dict] = None,
-    skip_if_env: str = "AWESOME_BOOTSTRAP_QUIET",
 ) -> bool:
-    """Run Stage A then Stage B. Returns True if library demos all passed."""
-    if os.environ.get(skip_if_env) == "1":
-        return True
+    """Run Stage A then Stage B. QUIET/FAST via env (still runs real deps/demos)."""
     run_stage_a_steps(hooks_a)
     ok = run_library_demo_graphical(python_bin)
     stage_b_exit_to_tui()
