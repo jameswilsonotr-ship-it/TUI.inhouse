@@ -1,30 +1,37 @@
 #!/usr/bin/env python3
 """
-AWESOME_LAUNCHER_OF_TUIDOOM.py
+AWESOME_LAUNCHER_OF_TUIDOOM.py — primary product entry for TUI.inhouse.
 
-Rock-solid, dead-stupid-simple Python TUI launcher for zip-packaged menus.
+Rock-solid, dead-stupid-simple Python TUI launcher for **zip-packaged menus**.
 
-Version: 0.1.0 (Initial Sovereign Live Release - full Phase 3 test harness)
+Version: 0.1.x (sovereign live — Phase 3 self-test + chrome PR-04…06)
 
-- python AWESOME_LAUNCHER_OF_TUIDOOM.py   (if Python in PATH)
-- Default menu: "Go find a real menu"
-- Zips: search, select, extract, run via harness
-- Harnesses support chunked ops (e.g. one day of "memory files"), loops, exit levels (0=success,1=error,2=partial), logs
-- Full TUI (Textual): header, footer, screens, prompts, live logs, file I/O
-- Session recording + replay for automation on data/script/env changes
-- BBS god-tier simple but powerful
-- Phase 3: --test (prompt, auto-zip, gutter flash circle + obnoxious, success)
+Features
+--------
+- Bootstrap (stdlib first): env sniff → venv → deps → re-exec (S1…S6).
+- Zip menus: search, select, extract, run harness (exit levels 0/1/2).
+- Textual multi-pane UI, Gutter Mode, gallery, effects, record/replay.
+- CLI: ``--create-demo``, ``--test``, ``--replay``, ``--quiet``, ``--fast``.
 
-References: OLIVIAPLEASEREADTHIS.md, olivia-dev-alpha in OLIV.DIVA, CHANGELOG.md, PHILOSOPHY.md
+Not in product scope
+--------------------
+Wrap-any Python path and full 7-phase + roster ops console are design concepts
+only (see docs/PR-ROADMAP.md potential P-20 / P-21) — **not approved**.
 
-Bootstrap per design (stdlib first, venv, deps).
+Documentation
+-------------
+docs/ARCHITECTURE.md · docs/HARNESS-CONTRACT.md · docs/API.md · docs/TESTING.md
+docs/DISTRIBUTION.md · docs/DOC-INDEX.md · PHILOSOPHY.md · QUICKSTART.md
 
-Usage examples:
+Usage
+-----
   python AWESOME_LAUNCHER_OF_TUIDOOM.py
   python AWESOME_LAUNCHER_OF_TUIDOOM.py --create-demo
-  python AWESOME_LAUNCHER_OF_TUIDOOM.py --replay sessions/xxx.json
+  python scripts/run_harness.py
+  python scripts/build_dist.py          # PR-10 wheel
+  pip install dist/awesome_tui_doom-*.whl && awesome-tui
 
-Config: LAUNCHERCONFIG.JSON (same dir)
+Config: LAUNCHERCONFIG.JSON (same directory as this file).
 """
 
 from __future__ import annotations
@@ -603,6 +610,12 @@ DEFAULT_CONFIG = {
 }
 
 def load_config() -> Dict[str, Any]:
+    """Load ``LAUNCHERCONFIG.JSON`` merged over ``DEFAULT_CONFIG``.
+
+    Returns:
+        Config dict (always a new mapping). On parse failure, prints a warning
+        and returns defaults.
+    """
     cfg_path = Path(__file__).parent / "LAUNCHERCONFIG.JSON"
     if cfg_path.exists():
         try:
@@ -615,6 +628,14 @@ def load_config() -> Dict[str, Any]:
     return DEFAULT_CONFIG.copy()
 
 def ensure_dirs(cfg: Dict[str, Any]) -> Dict[str, Path]:
+    """Create menus / logs / sessions directories under the package root.
+
+    Args:
+        cfg: Mapping with ``menus_dir``, ``logs_dir``, ``sessions_dir`` keys.
+
+    Returns:
+        Dict of resolved :class:`~pathlib.Path` objects.
+    """
     base = Path(__file__).parent
     dirs = {
         "menus": base / cfg["menus_dir"],
@@ -626,6 +647,14 @@ def ensure_dirs(cfg: Dict[str, Any]) -> Dict[str, Path]:
     return dirs
 
 def expand_search_paths(paths: List[str]) -> List[Path]:
+    """Expand ``~`` and keep paths that exist or are relative (``.`` style).
+
+    Args:
+        paths: Raw path strings from config.
+
+    Returns:
+        List of :class:`~pathlib.Path` candidates for zip search.
+    """
     out = []
     for p in paths:
         pp = Path(p).expanduser()
@@ -638,6 +667,17 @@ def expand_search_paths(paths: List[str]) -> List[Path]:
 # -------------------------------
 
 def find_menu_zips(search_paths: List[str]) -> List[Path]:
+    """Find ``*.zip`` menu packs under configured search paths.
+
+    Args:
+        search_paths: Directories to scan (non-recursive glob).
+
+    Returns:
+        Deduped, case-insensitive name-sorted absolute zip paths.
+
+    See Also:
+        docs/HARNESS-CONTRACT.md
+    """
     zips: List[Path] = []
     for base in expand_search_paths(search_paths):
         try:
@@ -656,7 +696,21 @@ def find_menu_zips(search_paths: List[str]) -> List[Path]:
     return unique
 
 def extract_menu_zip(zip_path: Path, menus_dir: Path) -> tuple[Path, str]:
-    """Extract and return (extracted_dir, main_script_name)"""
+    """Extract a menu zip into ``menus_dir`` and resolve the main script name.
+
+    Replaces any previous extraction for the same zip stem.
+
+    Args:
+        zip_path: Path to the ``.zip`` file.
+        menus_dir: Parent directory for extracted trees.
+
+    Returns:
+        Tuple ``(extracted_dir, main_script_name)``. ``main_script`` defaults
+        to ``harness.py`` if ``menu.json`` is missing or invalid.
+
+    See Also:
+        docs/HARNESS-CONTRACT.md
+    """
     name = zip_path.stem
     target = menus_dir / name
     if target.exists():
@@ -686,6 +740,25 @@ def run_harness_once(
     chunk: Optional[str],
     log_dir: Path,
 ) -> Dict[str, Any]:
+    """Run one harness subprocess and map exit codes to ``exit_level``.
+
+    Invokes::
+
+        python <main_script> [--chunk DATE] --log-dir <log_dir>
+
+    Args:
+        extracted_dir: Directory containing the harness script.
+        main_script: Filename from ``menu.json`` (fallback ``harness.py``).
+        chunk: Optional ISO date string for day-scoped work.
+        log_dir: Where to append processing/error logs.
+
+    Returns:
+        Dict with ``returncode``, ``stdout``, ``stderr``, ``exit_level``
+        (0 success, 1 error, 2 partial), and metadata.
+
+    See Also:
+        docs/HARNESS-CONTRACT.md, tests/test_menus.py
+    """
     harness = extracted_dir / main_script
     if not harness.exists():
         harness = extracted_dir / "harness.py"
@@ -747,6 +820,21 @@ def run_chunked_harness(
     end_chunk: Optional[str],
     log_dir: Path,
 ) -> List[Dict[str, Any]]:
+    """Run harness once per day in an inclusive ISO date range.
+
+    Stops early on hard errors (``exit_level == 1`` and ``returncode != 2``).
+    If only one of start/end is set, runs a single chunk.
+
+    Args:
+        extracted_dir: Extracted menu tree.
+        main_script: Harness filename.
+        start_chunk: Inclusive start date ``YYYY-MM-DD`` (optional).
+        end_chunk: Inclusive end date (optional).
+        log_dir: Shared log directory for all days.
+
+    Returns:
+        List of per-day result dicts from :func:`run_harness_once`.
+    """
     results = []
     if start_chunk and end_chunk:
         try:
@@ -845,16 +933,87 @@ DEMO_MENU_JSON = {
     "version": "phase1-demo"
 }
 
+# PR-15: capability demo is the default pack (menu v1 + samples + legacy harness)
+_CAPABILITY_DEMO_DIR = (
+    Path(__file__).resolve().parent
+    / "docs"
+    / "menu-system"
+    / "examples"
+    / "capability-demo"
+)
+_STANDARD_LAYOUT_PATH = (
+    Path(__file__).resolve().parent
+    / "docs"
+    / "menu-system"
+    / "examples"
+    / "layout.standard_menu.json"
+)
+
+
 def create_demo_menu_zip(dest: Path) -> Path:
+    """Write the built-in **capability demo** zip (PR-15).
+
+    Pack includes v1 menu.json/md/html, layout.json, windows.json, sample
+    scripts (wave, file_picker, web_search), and legacy harness.py.
+
+    Falls back to phase-1 only zip if the example tree is missing.
+    """
     dest = Path(dest).resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
+
+    demo_root = _CAPABILITY_DEMO_DIR
+    if not (demo_root / "menu.json").is_file():
+        with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as z:
+            z.writestr("menu.json", json.dumps(DEMO_MENU_JSON, indent=2))
+            z.writestr("harness.py", DEMO_HARNESS_CODE)
+            z.writestr("README.txt", "Demo zip (legacy fallback)\n")
+        return dest
+
+    windows_doc = {
+        "schema_version": "1.0.0",
+        "windows": [
+            {
+                "id": "main_output",
+                "panel": "main_output",
+                "title": "Output",
+                "streams": ["stdout", "stderr"],
+                "render_as": "log",
+                "buffer_lines": 5000,
+                "show_exit_banner": True,
+            }
+        ],
+    }
+    if _STANDARD_LAYOUT_PATH.is_file():
+        layout_text = _STANDARD_LAYOUT_PATH.read_text(encoding="utf-8")
+    else:
+        layout_text = json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "id": "standard_menu",
+                "regions": [],
+                "panels": [],
+            },
+            indent=2,
+        )
+
     with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        z.writestr("menu.json", json.dumps(DEMO_MENU_JSON, indent=2))
+        for name in ("menu.json", "menu.md", "menu.html"):
+            p = demo_root / name
+            if p.is_file():
+                z.write(p, arcname=name)
+        z.writestr("layout.json", layout_text)
+        z.writestr("windows.json", json.dumps(windows_doc, indent=2))
+        scripts_dir = demo_root / "scripts"
+        if scripts_dir.is_dir():
+            for sp in sorted(scripts_dir.glob("*.py")):
+                z.write(sp, arcname=f"scripts/{sp.name}")
         z.writestr("harness.py", DEMO_HARNESS_CODE)
-        z.writestr("README.txt",
-            "Demo zip for AWESOME LAUNCHER OF TUI DOOM\n\n"
-            "Select this menu, enter a chunk like 2026-06-20 or range, hit Run.\n"
-            "Harness writes processing.log + error.log and run_summary.json.\n")
+        z.writestr(
+            "README.md",
+            "# Capability Demo (default sample_menu.zip)\n\n"
+            "PR-11 menu · PR-12 layout · PR-13 output · PR-14 samples · PR-15 pack\n\n"
+            "Open in the launcher (auto) or press **Open Menu UI** / key **m**.\n",
+        )
     return dest
 
 # -------------------------------
@@ -932,9 +1091,10 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                     with Grid(id="main-grid"):
                         yield Button("Scan / Find Menu", id="scan", variant="primary")
                         yield Button("Create Demo Zip", id="demo")
-                        yield Button("Run Harness", id="run", variant="success")
+                        yield Button("Open Menu UI", id="open_menu", variant="success")
+                        yield Button("Run Harness", id="run", variant="warning")
                         yield Button("Library", id="library")
-                        yield Button("Gallery 6-Panel", id="gallery", variant="warning")
+                        yield Button("Gallery 6-Panel", id="gallery")
                         yield Button("Effects FX", id="effects")
                         yield Button("Toggle Rec", id="rec")
                         yield Button("Save Rec", id="save_rec")
@@ -953,8 +1113,8 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def on_mount(self) -> None:
             log = self.app.query_one("#runlog", Log)
-            log.write("[dim]Launcher ready. Scan for zips or create demo.[/dim]")
-            log.write("[magenta]Keys: G=6-panel gallery · E=effects · g=gutter · s=scan · ctrl+q=quit[/magenta]")
+            log.write("[dim]Launcher ready. Scan for zips or create demo (PR-15 capability pack).[/dim]")
+            log.write("[magenta]Keys: m=Open Menu UI · G=gallery · E=effects · g=gutter · s=scan · ctrl+q=quit[/magenta]")
             log.write("[dim]Crash logs → logs/tui_crash_*.log + logs/error_*.log (stamped)[/dim]")
 
         def on_list_view_selected(self, event) -> None:
@@ -978,7 +1138,12 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 dest = Path.cwd() / self.app.config["demo"]["sample_zip_name"]
                 create_demo_menu_zip(dest)
                 self.app.ui_log(f"[green]Demo menu created: {dest.name}[/green]")
-                self.app.ui_log("Now press 'Go find a real menu (Scan)' or run directly.")
+                self.app.ui_log("[cyan]Capability pack:[/cyan] wave · file picker · web search · legacy harness")
+                self.app.ui_log("Press [bold]Open Menu UI[/bold] (or key [bold]m[/bold]) to run items.")
+                self.app.current_zip = dest
+                self.app._zips = [dest]
+            elif bid == "open_menu":
+                self.app.action_open_menu_ui()
             elif bid == "run":
                 chunk = self.query_one("#chunk", Input).value
                 endc = self.query_one("#end_chunk", Input).value
@@ -1043,6 +1208,38 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 self.ui_log(f"[red]Effects failed: {e}[/red]")
                 _log_tui_crash(e, where="action_open_effects")
 
+        def action_open_menu_ui(self) -> None:
+            """PR-11/12/13: open MenuPackScreen for current zip (or create demo)."""
+            try:
+                self.open_menu_pack_for_zip(self.current_zip)
+            except Exception as e:
+                self.ui_log(f"[red]Open Menu UI failed: {e}[/red]")
+                _log_tui_crash(e, where="action_open_menu_ui")
+
+        def open_menu_pack_for_zip(self, zip_path: Optional[Path] = None) -> None:
+            """Extract zip (or ensure demo), load MenuPack, push MenuPackScreen."""
+            from tui_chrome.menu_model import extract_and_load_zip
+            from tui_chrome.menu_screen import MenuPackScreen
+
+            z = zip_path or self.current_zip
+            if z is None or not Path(z).exists():
+                # PR-15: auto-create default demo when nothing specified
+                dest = Path.cwd() / self.config.get("demo", {}).get(
+                    "sample_zip_name", "sample_menu.zip"
+                )
+                create_demo_menu_zip(dest)
+                z = dest
+                self.current_zip = dest
+                self._zips = [dest]
+                self.ui_log(f"[green]Created default demo pack:[/green] {dest.name}")
+            z = Path(z)
+            pack = extract_and_load_zip(z, self.dirs["menus"])
+            self.ui_log(
+                f"[cyan]Menu pack[/cyan] id={pack.id!r} items="
+                f"{len(pack.doc.get('menus', []))} → UI"
+            )
+            self.push_screen(MenuPackScreen(pack))
+
         BINDINGS = [
             Binding("ctrl+q", "quit", "Quit"),
             Binding("ctrl+c", "force_ctrl_c", "ForceKillArm", show=False, priority=True),
@@ -1052,6 +1249,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             Binding("g", "toggle_gutter", "Toggle Gutter"),  # From Olivia guide
             Binding("G", "open_gallery", "Gallery"),
             Binding("e", "open_effects", "Effects"),
+            Binding("m", "open_menu_ui", "Menu UI"),
         ]
 
         current_zip: reactive[Optional[Path]] = reactive(None)
@@ -1113,18 +1311,42 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             )
             if sample.exists() and sample not in zips:
                 zips = [sample] + zips
+            if not zips:
+                # PR-15: nothing specified → create capability demo zip and use it
+                sample = Path.cwd() / self.config.get("demo", {}).get(
+                    "sample_zip_name", "sample_menu.zip"
+                )
+                try:
+                    create_demo_menu_zip(sample)
+                    zips = [sample]
+                    self.ui_log(
+                        f"[green]No menu found — created default capability demo:[/green] "
+                        f"{sample.name}"
+                    )
+                except Exception as e:
+                    self.ui_log(f"[red]Could not create demo zip: {e}[/red]")
+                    # Fall through to Olivia locate
+                    zips = []
+
             if zips:
                 self.current_zip = zips[0]
                 self._zips = zips
                 try:
                     self.ui_log(
                         f"[green]Menu loaded:[/green] {self.current_zip.name} "
-                        f"({len(zips)} found). Scan or Run when ready."
+                        f"({len(zips)} found). Opening Menu UI…"
                     )
                 except Exception:
                     pass
+                # PR-11/15: auto-open structured menu UI
+                try:
+                    self.open_menu_pack_for_zip(self.current_zip)
+                except Exception as e:
+                    self.ui_log(f"[yellow]Menu UI deferred:[/yellow] {e}")
+                    _log_tui_crash(e, where="_menu_boot_flow open")
                 return
-            # No menu file — draw background prompt (Olivia voice)
+
+            # Still no menu — Olivia locate → picker → 6-panel demo
             try:
                 from tui_chrome.menu_intake import MenuLocateScreen, OliviaSixPanelDemo
             except ImportError:
@@ -1141,17 +1363,26 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
                 except Exception:
                     pass
                 self.ui_log(f"[cyan]Menu set:[/cyan] {path}")
-                # if it's a zip under cwd, also extract-ready
                 try:
                     if path.suffix.lower() == ".zip":
-                        extracted, _ = extract_menu_zip(path, self.dirs["menus"])
-                        self.ui_log(f"[dim]extracted → {extracted.name}[/dim]")
+                        self.open_menu_pack_for_zip(path)
                 except Exception as e:
-                    self.ui_log(f"[yellow]extract later:[/yellow] {e}")
+                    self.ui_log(f"[yellow]open menu UI:[/yellow] {e}")
 
             def _on_demo() -> None:
                 try:
                     self.pop_screen()
+                except Exception:
+                    pass
+                # Prefer capability demo zip over pure Olivia six-panel if possible
+                try:
+                    dest = Path.cwd() / self.config.get("demo", {}).get(
+                        "sample_zip_name", "sample_menu.zip"
+                    )
+                    create_demo_menu_zip(dest)
+                    self.current_zip = dest
+                    self.open_menu_pack_for_zip(dest)
+                    return
                 except Exception:
                     pass
                 self.ui_log(

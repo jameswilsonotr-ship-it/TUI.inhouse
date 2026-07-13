@@ -1,4 +1,4 @@
-"""Bootstrap stage theater — visually staged install / dep UX.
+"""Bootstrap stage theater — visually staged install / dep UX (PR-08 docs).
 
 Research notes (how polished tool managers stage boot):
   - cargo / rustup: sequential phase lines + quiet status verbs (Compiling… Done)
@@ -15,6 +15,8 @@ Rules (WSL / Windows Terminal safe):
 
 Stage A  — black bg, white text, 40 cols, blank flash, install steps + spinner
 Stage B  — dark blue bg, 80 cols, flash, graphical-but-real library demos
+
+See docs/ARCHITECTURE.md, docs/API.md.
 """
 from __future__ import annotations
 

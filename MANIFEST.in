@@ -1,0 +1,17 @@
+# PR-10 — sdist contents beyond pure Python packages
+include README.md
+include LICENSE*
+include CHANGELOG.md
+include PHILOSOPHY.md
+include QUICKSTART.md
+include requirements.txt
+include LAUNCHERCONFIG.JSON
+include grok_tui.tcss
+include AWESOME_LAUNCHER_OF_TUIDOOM.py
+include launcher.py
+include minimal_tui.py
+recursive-include tui_chrome *.py *.tcss
+recursive-include awesome_tui *.py
+recursive-include docs *.md
+recursive-include tests *.py
+global-exclude __pycache__ *.py[cod] .venv logs sessions

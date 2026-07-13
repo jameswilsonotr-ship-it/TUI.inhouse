@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "id": "standard_menu",
+  "title": "Standard menu + output",
+  "orientation": "vertical",
+  "regions": [
+    {
+      "id": "r_header",
+      "role": "header",
+      "size": "rows:1",
+      "panels": ["app_title"]
+    },
+    {
+      "id": "r_body",
+      "role": "main",
+      "size": "fr:1",
+      "panels": ["menu_tree", "item_help", "main_output"]
+    },
+    {
+      "id": "r_footer",
+      "role": "footer",
+      "size": "rows:1",
+      "panels": ["key_help"]
+    }
+  ],
+  "panels": [
+    {
+      "id": "app_title",
+      "title": "Title",
+      "role": "chrome",
+      "content_types": ["plain", "markdown"],
+      "default_content_type": "plain",
+      "border": "none",
+      "gutter_reactive": true
+    },
+    {
+      "id": "menu_tree",
+      "title": "Menu",
+      "role": "menu",
+      "content_types": ["widget"],
+      "focusable": true,
+      "border": "heavy",
+      "gutter_reactive": true
+    },
+    {
+      "id": "item_help",
+      "title": "Help",
+      "role": "content",
+      "content_types": ["markdown", "html", "plain"],
+      "default_content_type": "markdown",
+      "border": "single"
+    },
+    {
+      "id": "main_output",
+      "title": "Output",
+      "role": "output",
+      "content_types": ["log", "ansi", "markdown", "html", "json"],
+      "default_content_type": "log",
+      "scroll": true,
+      "focusable": true,
+      "border": "double",
+      "gutter_reactive": true
+    },
+    {
+      "id": "key_help",
+      "title": "Keys",
+      "role": "chrome",
+      "content_types": ["plain"],
+      "border": "none"
+    }
+  ],
+  "bindings": [
+    { "slot": "app_title", "panel": "app_title" },
+    { "slot": "menu_tree", "panel": "menu_tree" },
+    { "slot": "item_help", "panel": "item_help" },
+    { "slot": "main_output", "panel": "main_output" },
+    { "slot": "key_help", "panel": "key_help" }
+  ]
+}

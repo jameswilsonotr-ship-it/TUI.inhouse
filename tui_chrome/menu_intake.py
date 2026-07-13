@@ -1,14 +1,14 @@
-"""Menu locate flow — Olivia voice, file picker, 6-panel demo fallback.
+"""Menu locate flow — Olivia voice, file picker, 6-panel demo fallback (PR-08).
 
 After bootstrap Stage B:
-  - try load menu zip from config / sample
-  - if none: full-screen prompt
-      "Hey, where’s your menu file, idiot?"
-  - non-empty path → load that zip
-  - straight carriage return (empty) →
-        native OS dialog first (Win/WSL/Tk/zenity), else center Textual picker
-  - picker cancel / no selection → 6-panel Olivia-voice randomized demo
-    using the same LAYOUT_MODES as gallery.py (L cycles layouts)
+
+- try load menu zip from config / sample
+- if none: full-screen prompt ("Hey, where's your menu file, idiot?")
+- non-empty path → load that zip
+- bare Return → native OS dialog first, else center Textual picker
+- cancel / none → 6-panel Olivia demo (same ``LAYOUT_MODES`` as gallery; ``L`` cycles)
+
+See docs/API.md, docs/ARCHITECTURE.md, docs/HARNESS-CONTRACT.md.
 """
 from __future__ import annotations
 

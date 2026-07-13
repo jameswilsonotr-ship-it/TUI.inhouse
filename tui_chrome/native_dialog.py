@@ -1,13 +1,16 @@
-"""Native OS file dialogs with Textual DirectoryTree fallback.
+"""Native OS file dialogs with Textual DirectoryTree fallback (PR-08).
 
 Order of attempts:
-  1. tkinter.filedialog (works on many desktops if Tcl/Tk present)
-  2. Windows PowerShell OpenFileDialog (native Win32 / also WSL→powershell.exe)
-  3. zenity / kdialog on Linux (optional)
-  4. None → caller should open Textual MenuFilePicker
 
-Never raises to the UI thread for "not available" — returns None so Olivia
-can fall through to the in-TUI picker or demo.
+1. ``tkinter.filedialog`` (when Tcl/Tk present)
+2. Windows PowerShell ``OpenFileDialog`` (Win32 / WSL→powershell.exe)
+3. ``zenity`` / ``kdialog`` on Linux (optional)
+4. ``None`` → caller opens Textual ``MenuFilePicker``
+
+Never raises for "not available" — returns ``None`` so Olivia can fall through
+to the in-TUI picker or demo.
+
+See docs/API.md.
 """
 from __future__ import annotations
 

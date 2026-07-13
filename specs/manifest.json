@@ -1,0 +1,14 @@
+{
+  "name": "TUI.inhouse",
+  "version": "0.1.0",
+  "discipline": [
+    "olivia-repo-template",
+    "olivia-dev-folder-discipline"
+  ],
+  "standalone": true,
+  "authors": [
+    "Olivia system",
+    "Bunny (user)"
+  ],
+  "updated": "2026-07-13"
+}

@@ -1,12 +1,15 @@
 # AWESOME LAUNCHER OF TUI DOOM
 
-**v0.1.0 — Initial Sovereign Live Release**  
+> **NEXT SESSION:** read **[CURRENT-STATE.md](CURRENT-STATE.md) first** — process position + deploy handoff.
+
+**v0.1.x — Live product + menu platform (PR-11…15)**  
 Rock-solid, dead-stupid-simple Python TUI launcher for zip-packaged menus + harnesses.  
-BBS god-tier but dial-up simple. Full Gutter Mode. Phase 3 test harness included.
+BBS god-tier but dial-up simple. Full Gutter Mode. Phase 3 test harness included.  
+Capability demo Menu UI when nothing else is specified.
 
 **One command**: `python AWESOME_LAUNCHER_OF_TUIDOOM.py` (Python in PATH = it just works).
 
-See [QUICKSTART.md](QUICKSTART.md) | [PHILOSOPHY.md](PHILOSOPHY.md) | [CHANGELOG.md](CHANGELOG.md) | [TODO.md](TODO.md) | [WISHLIST.md](WISHLIST.md) | [OLIVIAPLEASEREADTHIS.md](OLIVIAPLEASEREADTHIS.md)
+See [CURRENT-STATE.md](CURRENT-STATE.md) | [QUICKSTART.md](QUICKSTART.md) | [PHILOSOPHY.md](PHILOSOPHY.md) | [CHANGELOG.md](CHANGELOG.md) | [TODO.md](TODO.md) | [docs/DOC-INDEX.md](docs/DOC-INDEX.md)
 
 **References** (olivia-dev-alpha + sovereign style):  
 C:\Users\chast\#CODE\OLIV.DIVA\nests\lore-nest\chat-skills\olivia-dev-alpha\ (philosophy, gutter-mode.md, code-style-bible.md, folder-discipline.md, wishlist, etc.)
@@ -21,13 +24,27 @@ C:\Users\chast\#CODE\OLIV.DIVA\nests\lore-nest\chat-skills\olivia-dev-alpha\ (ph
 - Exact branding per Olivia.
 
 ## Quick Start
-See [QUICKSTART.md](QUICKSTART.md) for full.
+See [QUICKSTART.md](QUICKSTART.md) for full. Docs hub: [docs/DOC-INDEX.md](docs/DOC-INDEX.md).
 
 ```powershell
 python AWESOME_LAUNCHER_OF_TUIDOOM.py --create-demo
 python AWESOME_LAUNCHER_OF_TUIDOOM.py --test
 python AWESOME_LAUNCHER_OF_TUIDOOM.py
 ```
+
+```bash
+# Tests (PR-09) — no interactive TUI required
+python scripts/run_harness.py
+
+# Distribution (PR-10) — wheel + optional offline wheelhouse
+python scripts/build_dist.py
+python scripts/build_dist.py --wheelhouse
+# pip install dist/awesome_tui_doom-*.whl
+# or offline: pip install --no-index --find-links=wheelhouse awesome-tui-doom
+# then: awesome-tui
+```
+
+See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
 ## Structure (Polished for Live v0.1)
 - `AWESOME_LAUNCHER_OF_TUIDOOM.py` + `LAUNCHERCONFIG.JSON` (the launcher)

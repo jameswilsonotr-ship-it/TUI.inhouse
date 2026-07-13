@@ -1,7 +1,11 @@
-"""PR-04 — Layout presets & panel chrome (Textual-oriented helpers).
+"""PR-04 / PR-08 — Layout presets & panel chrome (Textual-oriented helpers).
 
 Pattern ports inspired by Textual multi-pane apps / BBS window chrome —
-not a vendored third-party tree. See docs/PR-04-layout-chrome.md.
+not a vendored third-party tree.
+
+See Also
+--------
+docs/PR-04-layout-chrome.md, docs/API.md, tests/test_layouts.py
 """
 from __future__ import annotations
 
@@ -20,6 +24,14 @@ LAYOUT_MODES: List[str] = [
 
 @dataclass(frozen=True)
 class PanelSpec:
+    """One gallery panel identity.
+
+    Attributes:
+        id: Stable widget id fragment (e.g. ``p0``).
+        title: Human label shown in chrome.
+        index: Zero-based panel index (0..5).
+    """
+
     id: str
     title: str
     index: int
@@ -36,6 +48,11 @@ DEFAULT_PANELS: List[PanelSpec] = [
 
 
 def next_layout(current: str) -> str:
+    """Return the next ``LAYOUT_MODES`` id after ``current`` (wraps).
+
+    Args:
+        current: Mode id; unknown values reset to first mode.
+    """
     try:
         i = LAYOUT_MODES.index(current)
     except ValueError:
@@ -44,6 +61,13 @@ def next_layout(current: str) -> str:
 
 
 def circle_index(i: int, delta: int, n: int = 6) -> int:
+    """Wrap index ``i + delta`` into ``[0, n)``.
+
+    Args:
+        i: Current focus index.
+        delta: Step (often ±1).
+        n: Panel count (default 6).
+    """
     return (i + delta) % n
 
 
@@ -92,6 +116,7 @@ LayoutScreen, GalleryScreen {
 
 
 def layout_description(mode: str) -> str:
+    """Human one-liner for a layout mode id (unknown → raw id)."""
     return {
         "six_grid": "2×3 grid — six equal panels",
         "three_vertical": "three vertical columns (2 panels stacked each)",
@@ -110,10 +135,19 @@ def mount_layout(
     Horizontal,
     Vertical,
 ) -> None:
-    """Mount `panel_widgets` (len 6) into `root` using a gallery LAYOUT_MODE.
+    """Mount ``panel_widgets`` (len 6) into ``root`` using a gallery LAYOUT_MODE.
 
     Shared by GalleryScreen and OliviaSixPanelDemo so layout keys stay in sync.
     Callers pass Textual container classes (avoids hard import at module load).
+
+    Args:
+        root: Textual container with ``remove_children`` / ``mount``.
+        mode: One of ``LAYOUT_MODES``.
+        panel_widgets: Exactly six already-built panel widgets.
+        Grid, Horizontal, Vertical: Textual container classes.
+
+    Raises:
+        ValueError: If fewer than six panels are provided.
     """
     root.remove_children()
     panels = list(panel_widgets)

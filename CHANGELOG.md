@@ -1,5 +1,79 @@
 # CHANGELOG
 
+## 2026-07-13 — Ingest + packaging docs
+
+- Document promoted Google Drive Grok/Takeout roots and agent-based Drive org research (`docs/2026-07-13-drive-ingest-and-agent-org.md`).
+- Packaging: `pyproject.toml`, harness scripts, menu system docs, action_runner/menu_model/menu_screen.
+- Inventory hygiene sidecars (FOLDER-HYGIENE, SHALLOW-MANIFEST, AGENTS.md).
+
+
+## [0.1.8] - 2026-07-13 - PR-11…13 runtime + PR-15 demo zip
+
+### Added
+1. **Runtime PR-11** — `tui_chrome/menu_model.py` (load/normalize/extract packs)
+2. **Runtime PR-12/13** — `tui_chrome/menu_screen.py` + `action_runner.py`
+   - Menu list · help · output Log · Run/Enter
+   - Subprocess env `TUI_*`, control lines, exit banners
+3. **PR-15** — `create_demo_menu_zip()` packs capability-demo (scripts + layout + windows)
+   - Auto-create demo when no zip found; auto-open **Menu UI**
+   - Key **m** / button **Open Menu UI**
+4. Tests: 33 total (`test_menu_model`, `test_action_runner`, `test_demo_zip`)
+
+### Run
+```bash
+python AWESOME_LAUNCHER_OF_TUIDOOM.py --create-demo
+python AWESOME_LAUNCHER_OF_TUIDOOM.py   # opens Menu UI on capability demo
+# In UI: select Wave / File picker / Web search → Run
+```
+
+## [0.1.7] - 2026-07-13 - PR-11…15 menu platform specs (MD/HTML menus, layout, output)
+
+### Added
+1. **PR-11 (priority)** Forwards-compatible Markdown/HTML/JSON menu system  
+   - `docs/menu-system/MENU-SYSTEM.md` + `schema/menu.schema.json`  
+   - Examples: `examples/capability-demo/` (menu.json / .md / .html)  
+   - `scripts/validate_menu.py`
+2. **PR-12** Screen GUI layout structure  
+   - `SCREEN-LAYOUT.md` + `schema/layout.schema.json` + `layout.standard_menu.json`
+3. **PR-13** Output windows + exact code call/display protocol  
+   - `OUTPUT-WINDOWS.md` · `CODE-CALL-DISPLAY.md` · `schema/window.schema.json`
+4. **PR-14** Sample script stubs: `wave.py`, `file_picker.py`, `web_search.py`
+5. **PR-15** Plan: integrate all into default demo zip (`PR-15-demo-zip-integration.md`)
+6. Not-approved design concepts renumbered to **P-20 / P-21**
+
+### Notes
+- Runtime loader / Textual mount / demo zip rebuild still open (see TODO).
+- Specs are SSoT for implementation of PR-11…15.
+
+## [0.1.6] - 2026-07-13 - PR-10 distribution scaffold (wheel / wheelhouse)
+
+### Added
+1. **PR-10 Distribution**
+   - `pyproject.toml` — package `awesome-tui-doom`, deps textual/rich, console scripts
+   - `awesome_tui/` install shell (`awesome-tui`, `awesome-tui-harness`)
+   - `scripts/build_dist.py` — sdist/wheel + optional `--wheelhouse`
+   - `docs/DISTRIBUTION.md`, `docs/PR-10-distribution-wheel.md`
+   - `MANIFEST.in`, gitignore `dist/` / `wheelhouse/`
+2. Potential design concepts renumbered to **P-12** / **P-13** (still not approved).
+3. Frozen binary deferred to **PR-10b** (not MVP).
+
+## [0.1.6] - 2026-07-13 - PR-07/08/09 documentation, docstrings, test harness
+
+### Added
+1. **PR-07 Strong documentation**
+   - `docs/DOC-INDEX.md`, `ARCHITECTURE.md`, `HARNESS-CONTRACT.md`, `API.md`, `TESTING.md`
+   - Plans: `docs/PR-07-strong-documentation.md`
+2. **PR-08 Strong docstrings**
+   - Package/module docstrings for `tui_chrome/*`, public launcher helpers, entry modules
+   - Plan: `docs/PR-08-docstrings.md`
+3. **PR-09 Test harness suite**
+   - `tests/` (effects, layouts, config, menus/contract)
+   - `scripts/run_harness.py` → `HARNESS OK` on green
+   - Plan: `docs/PR-09-test-harness.md`
+
+### Notes
+- Potential design concepts later moved to **P-12** / **P-13** when PR-10 took the distribution slot.
+
 ## [0.1.5] - 2026-07-13 - Quiet/fast theater, gallery layouts in demo, native file dialog
 
 ### Added

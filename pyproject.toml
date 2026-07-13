@@ -1,0 +1,66 @@
+# PR-10 — installable wheel metadata for AWESOME LAUNCHER OF TUI DOOM
+# Build: python scripts/build_dist.py
+# See docs/DISTRIBUTION.md
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "awesome-tui-doom"
+version = "0.1.6"
+description = "AWESOME LAUNCHER OF TUI DOOM — Textual zip-menu / harness launcher"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LicenseRef-Proprietary"
+authors = [{ name = "TUI.inhouse / Liv HUB" }]
+keywords = ["tui", "textual", "launcher", "grok", "olivia"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Terminals",
+]
+dependencies = [
+  "textual>=1.0.0,<9",
+  "rich>=13.0.0,<16",
+]
+
+[project.optional-dependencies]
+dist = [
+  "build>=1.0",
+  "wheel>=0.41",
+]
+# PR-10b later — not required for wheel path
+frozen = [
+  "pyinstaller>=6.0",
+]
+
+[project.scripts]
+awesome-tui = "awesome_tui.__main__:main"
+awesome-tui-harness = "awesome_tui.harness_entry:main"
+
+[project.urls]
+Homepage = "https://github.com/jameswilsonotr-ship-it/TUI.inhouse"
+
+[tool.setuptools]
+include-package-data = true
+# Flat product modules + install shell + chrome package
+packages = ["awesome_tui", "awesome_tui.data", "tui_chrome"]
+py-modules = [
+  "AWESOME_LAUNCHER_OF_TUIDOOM",
+  "launcher",
+  "minimal_tui",
+]
+
+[tool.setuptools.package-data]
+"awesome_tui" = ["py.typed"]
+"awesome_tui.data" = ["*"]
+tui_chrome = ["*.tcss", "py.typed"]

@@ -1,0 +1,4 @@
+# AWESOME LAUNCHER OF TUI DOOM — core runtime
+# Pin loosely enough for 3.10–3.14; tighten in CI later if needed.
+textual>=1.0.0,<9
+rich>=13.0.0,<16

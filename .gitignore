@@ -2,8 +2,16 @@
 __pycache__/
 *.pyc
 .venv/
+.venv-*/
 logs/
 sessions/
 *.zip
 # Demo zips can be recreated with --create-demo; commit specific examples only if intentional
 # Keep sample_menu.zip out unless explicitly wanted in repo
+
+# PR-10 distribution outputs
+dist/
+wheelhouse/
+*.egg-info/
+.eggs/
+build/

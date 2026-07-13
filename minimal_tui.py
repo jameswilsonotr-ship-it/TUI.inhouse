@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""
-minimal_tui.py - Minimal working TUI based on the design principles and walkthrough.
-Uses Textual for home grid menu as per Grok TUI Launcher design.
-Supports Gutter Mode, basic navigation.
-Run with: python minimal_tui.py
+"""minimal_tui.py — tiny Textual smoke / design-shaped home grid.
 
-Slight extension alignment with Olivia's canonical "Olivia says read this.md" (a40a52d on master):
-- Two-layer Gutter via class toggle
-- Reference for multi-pane / ListView / Log in the main launcher
-See that file (do not overwrite) for the full starter template and patterns.
+**Not** the product entry. Product zip launcher is ``AWESOME_LAUNCHER_OF_TUIDOOM.py``.
+
+This file keeps a baby-step Iron Pearl-style home grid (phases / roster tiles
+as stubs only). Full 7-phase + roster product work is **not approved**
+(see docs/PR-ROADMAP.md P-21).
+
+Run::
+
+    python minimal_tui.py
+
+See docs/ARCHITECTURE.md, Olivia says read this.md (Gutter patterns).
 """
 
 from textual.app import App, ComposeResult

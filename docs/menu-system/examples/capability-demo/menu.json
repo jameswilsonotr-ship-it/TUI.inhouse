@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "id": "capability-demo",
+  "title": "Capability Demo",
+  "description": "Built-in demo: wave motion, file picker, web search — PR-14/15 target.",
+  "content_format": "markdown",
+  "version": "0.1.0",
+  "tags": ["demo", "builtin", "samples"],
+  "defaults": {
+    "layout_id": "standard_menu",
+    "output_window": "main_output",
+    "render_as": "log",
+    "action_timeout_sec": 120
+  },
+  "menus": [
+    {
+      "id": "root",
+      "label": "Capability Demo",
+      "kind": "group",
+      "children": [
+        {
+          "id": "wave",
+          "label": "Wave motion",
+          "help": "ANSI/log wavy sine animation in the output window.",
+          "hotkey": "1",
+          "icon": "🌊",
+          "action": {
+            "type": "run_python",
+            "target": "scripts/wave.py",
+            "args": { "frames": 48, "width": 52 },
+            "output": {
+              "window": "main_output",
+              "stream": "both",
+              "render_as": "ansi",
+              "clear": true
+            }
+          }
+        },
+        {
+          "id": "file_picker",
+          "label": "File picker",
+          "help": "Pick a file path (prompt protocol) and print it as markdown.",
+          "hotkey": "2",
+          "icon": "📁",
+          "action": {
+            "type": "run_python",
+            "target": "scripts/file_picker.py",
+            "output": {
+              "window": "main_output",
+              "stream": "both",
+              "render_as": "markdown",
+              "clear": true
+            }
+          }
+        },
+        {
+          "id": "web_search",
+          "label": "Web search (sample)",
+          "help": "Attempts a simple web search via stdlib. **Requires network.**",
+          "hotkey": "3",
+          "icon": "🔎",
+          "action": {
+            "type": "run_python",
+            "target": "scripts/web_search.py",
+            "args": { "q": "textual python tui" },
+            "timeout_sec": 60,
+            "output": {
+              "window": "main_output",
+              "stream": "both",
+              "render_as": "markdown",
+              "clear": true
+            }
+          }
+        },
+        {
+          "id": "legacy_chunk",
+          "label": "Legacy harness (chunk demo)",
+          "help": "Bridge to legacy_harness for one day chunk.",
+          "hotkey": "4",
+          "action": {
+            "type": "legacy_harness",
+            "target": "harness.py",
+            "output": {
+              "window": "main_output",
+              "render_as": "log",
+              "clear": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

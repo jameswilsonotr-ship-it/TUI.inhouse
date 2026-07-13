@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tui.inhouse/schemas/menu/1.0.0",
+  "title": "TUI.inhouse Menu Pack (canonical menu.json)",
+  "description": "Forwards-compatible menu model. Unknown properties at any object MUST be ignored by loaders (additionalProperties true).",
+  "type": "object",
+  "required": ["schema_version", "id", "title", "menus"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semver of this document against MENU-SYSTEM.md"
+    },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "content_format": {
+      "type": "string",
+      "enum": ["plain", "markdown", "html"],
+      "default": "markdown"
+    },
+    "version": { "type": "string" },
+    "locale": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "content_format": { "type": "string", "enum": ["plain", "markdown", "html"] },
+        "layout_id": { "type": "string" },
+        "output_window": { "type": "string" },
+        "action_timeout_sec": { "type": "number", "minimum": 0 },
+        "render_as": {
+          "type": "string",
+          "enum": ["log", "markdown", "html", "ansi", "json"]
+        }
+      }
+    },
+    "menus": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/menuNode" }
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/actionSpec" }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "menuNode": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "help": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["item", "group", "separator", "link"],
+          "default": "item"
+        },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/menuNode" }
+        },
+        "action": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "$ref": "#/$defs/actionSpec" }
+          ]
+        },
+        "hotkey": { "type": "string" },
+        "enabled": { "type": "boolean", "default": true },
+        "visible": { "type": "boolean", "default": true },
+        "icon": { "type": "string" },
+        "when": { "type": "string" },
+        "extensions": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "actionSpec": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "run_python",
+            "run_shell",
+            "open_menu",
+            "open_url",
+            "builtin",
+            "noop",
+            "legacy_harness"
+          ]
+        },
+        "target": { "type": "string" },
+        "args": {
+          "oneOf": [
+            { "type": "array", "items": { "type": ["string", "number", "boolean"] } },
+            { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } }
+          ]
+        },
+        "cwd": { "type": "string" },
+        "timeout_sec": { "type": "number", "minimum": 0 },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "confirm": { "type": "string" },
+        "output": { "$ref": "#/$defs/outputBinding" },
+        "extensions": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "outputBinding": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "window": { "type": "string", "default": "main_output" },
+        "stream": {
+          "type": "string",
+          "enum": ["stdout", "stderr", "both", "events"],
+          "default": "both"
+        },
+        "render_as": {
+          "type": "string",
+          "enum": ["log", "markdown", "html", "ansi", "json"],
+          "default": "log"
+        },
+        "clear": { "type": "boolean", "default": true },
+        "append": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

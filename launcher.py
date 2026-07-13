@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-launcher.py - Grok TUI Launcher bootstrap (per design principles and walkthrough)
-Stdlib only for bootstrap. Detects env, sets up venv, installs deps, re-execs, launches TUI.
-This is the "at worst just run python + script name" entry point.
+launcher.py — lightweight stdlib bootstrap entry (design-shaped).
 
-PR-04+: skip reinstall when importable; stamped logs under logs/; no App.log shadow.
-Prefer AWESOME_LAUNCHER_OF_TUIDOOM.py for the full install UX (40-col black/white).
+Detects env, creates ``.venv``, installs core deps (textual/rich), re-execs,
+then hands off toward the TUI. Prefer **AWESOME_LAUNCHER_OF_TUIDOOM.py** for
+the full product install theater, zip menus, and chrome.
+
+See docs/ARCHITECTURE.md, docs/PR-08-docstrings.md.
 """
 
 import os
@@ -19,7 +20,11 @@ CORE_DEPS = ["textual", "rich"]
 
 
 def detect_env():
-    """Env sniffing first, always (per design)."""
+    """Sniff platform / WSL / Python and print a short report.
+
+    Returns:
+        Dict of environment facts for logs and operators.
+    """
     print("Detecting environment...")
     env_info = {
         "platform": platform.platform(),
@@ -35,7 +40,11 @@ def detect_env():
 
 
 def find_or_create_venv():
-    """Find/create a base .venv next to launcher (or in known bunker location)."""
+    """Find or create a base ``.venv`` next to this file.
+
+    Returns:
+        Path to the venv directory.
+    """
     venv_path = Path(__file__).parent / ".venv"
     if not venv_path.exists():
         print(f"Creating venv at {venv_path}...")
@@ -44,7 +53,14 @@ def find_or_create_venv():
 
 
 def ensure_deps(venv_path):
-    """Install only if missing. Full pip log under logs/ with timestamp stamp."""
+    """Install core deps only if not importable; log under ``logs/``.
+
+    Args:
+        venv_path: Virtualenv directory from :func:`find_or_create_venv`.
+
+    Returns:
+        Path to the venv Python executable.
+    """
     import datetime as _dt
 
     python_bin = venv_path / (

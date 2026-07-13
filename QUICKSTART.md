@@ -9,9 +9,46 @@ See PHILOSOPHY.md for why. See OLIVIAPLEASEREADTHIS.md for full plan + Olivia re
 - Python 3.x in PATH.
 - That's it (bootstrap handles venv + textual/rich).
 
-## Run It
+## One-line install (preferred — dirty simple)
+
+```bash
+# Linux / WSL / macOS (from repo root)
+chmod +x install.sh
+./install.sh                  # sprawl + venv + deps + strobe + launch
+./install.sh --no-launch      # setup only
+./install.sh --recon-only     # environment report → logs/recon-report.*
+./install.sh --install-python # opt-in: try to install system Python if missing
+```
+
 ```powershell
-# From repo root
+# Windows
+.\install.ps1
+.\install.ps1 -NoLaunch
+# or double-click run.cmd
+```
+
+**Roadmap (all PRs):** [docs/PR-ROADMAP.md](docs/PR-ROADMAP.md)  
+**Doc hub:** [docs/DOC-INDEX.md](docs/DOC-INDEX.md)  
+**Tests (PR-09):** `python scripts/run_harness.py` — see [docs/TESTING.md](docs/TESTING.md)  
+**Dist (PR-10):** `python scripts/build_dist.py` — wheel / wheelhouse — [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)  
+**Menus (PR-11…15):** [docs/menu-system/README.md](docs/menu-system/README.md) — runtime Menu UI + capability demo
+
+| In TUI | Key / button |
+|--------|----------------|
+| **Open Menu UI** (capability pack) | `m` / “Open Menu UI” |
+| Run selected menu action | Enter / `r` (inside Menu UI) |
+| 6-panel gallery + nested menus | `G` / “Gallery 6-Panel” |
+| Effects (strobe/sparkle) | `E` / “Effects FX” |
+| Gutter | `g` |
+| Quit | `ctrl+q` |
+
+Default launch with no zip → creates `sample_menu.zip` (wave · file picker · web search · legacy harness) and opens Menu UI.
+
+**If it crashes:** `tail -100 logs/tui_crash.log` and `logs/error.log`
+
+## Run It (manual)
+```powershell
+# From repo root (if you already have venv/deps)
 python AWESOME_LAUNCHER_OF_TUIDOOM.py
 ```
 

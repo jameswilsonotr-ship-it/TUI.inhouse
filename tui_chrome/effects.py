@@ -1,6 +1,11 @@
-"""PR-06 — ANSI/ASCII strobe, glitter, sparkle (stdlib only).
+"""PR-06 / PR-08 — ANSI/ASCII strobe, glitter, sparkle (stdlib only).
 
-Classic BBS energy. No Textual dependency so install.sh can reuse later.
+Classic BBS energy. **No Textual dependency** so install theater and unit tests
+can import this module without a venv.
+
+See Also
+--------
+docs/API.md, docs/PR-06-ansi-effects.md, tests/test_effects.py
 """
 from __future__ import annotations
 
@@ -24,22 +29,55 @@ GLITTER_CHARS = list("░▒▓█·✦*+☆")
 
 
 def strip_ansi(s: str) -> str:
+    """Remove SGR ANSI escape sequences from ``s``.
+
+    Args:
+        s: Possibly colorized string.
+
+    Returns:
+        Plain text with escapes stripped.
+    """
     import re
     return re.sub(r"\033\[[0-9;]*m", "", s)
 
 
 def strobe_frame(text: str, tick: int) -> str:
-    """Alternate high-heat colors around text."""
+    """Wrap ``text`` in bold cycling high-heat colors.
+
+    Args:
+        text: Visible payload.
+        tick: Frame index into the color table.
+
+    Returns:
+        ANSI-colored string (reset appended).
+    """
     c = COLORS[tick % len(COLORS)]
     return f"{BOLD}{c}{text}{RESET}"
 
 
 def glitter_line(width: int = 40, tick: int = 0, seed: int | None = None) -> str:
+    """Deterministic-ish dense glitter characters of fixed width.
+
+    Args:
+        width: Output character count.
+        tick: Animation frame (mixed into RNG seed).
+        seed: Base seed; same ``(seed, tick)`` → same line.
+    """
     rng = random.Random((seed or 0) + tick)
     return "".join(rng.choice(GLITTER_CHARS) for _ in range(width))
 
 
 def sparkle_field(rows: int = 5, width: int = 36, tick: int = 0) -> str:
+    """Sparse multi-line twinkle field (deterministic from ``tick``).
+
+    Args:
+        rows: Number of lines.
+        width: Columns per line.
+        tick: Animation frame.
+
+    Returns:
+        Newline-joined plain (non-ANSI) field.
+    """
     lines = []
     for r in range(rows):
         line = []
@@ -52,6 +90,16 @@ def sparkle_field(rows: int = 5, width: int = 36, tick: int = 0) -> str:
 
 
 def banner_crawl(msg: str, width: int = 42, tick: int = 0) -> str:
+    """Horizontal marquee of ``msg`` clipped to ``width``.
+
+    Args:
+        msg: Banner text.
+        width: Visible columns.
+        tick: Scroll offset.
+
+    Returns:
+        Exactly ``width`` characters.
+    """
     pad = "   " + msg + "   "
     if not pad:
         return " " * width
@@ -61,6 +109,11 @@ def banner_crawl(msg: str, width: int = 42, tick: int = 0) -> str:
 
 
 def gutter_banner(tick: int = 0) -> str:
+    """Cycling Gutter / Olivia slogan with strobe colors.
+
+    Args:
+        tick: Frame index selecting slogan + color.
+    """
     frames = [
         "▓░▓░ GUTTER MODE ░▓░▓",
         "░▓░▓ PINK / BLACK ▓░▓░",
@@ -72,7 +125,13 @@ def gutter_banner(tick: int = 0) -> str:
 
 
 def ascii_box(title: str, body: str, width: int = 44) -> str:
-    """Double-line-ish ASCII box (pure text; Textual will draw real borders)."""
+    """Double-line-ish ASCII box (pure text; Textual draws real borders later).
+
+    Args:
+        title: Header label (truncated to inner width).
+        body: Multi-line body; each line truncated.
+        width: Total box width including borders.
+    """
     inner = width - 2
     top = "╔" + "═" * inner + "╗"
     bot = "╚" + "═" * inner + "╝"
@@ -87,7 +146,18 @@ def ascii_box(title: str, body: str, width: int = 44) -> str:
 
 
 def effect_demo_frames(seconds: float = 2.0, fps: float = 12.0) -> Iterator[str]:
-    """Yield plain (no ANSI) frames for Textual Static widgets."""
+    """Yield plain (no ANSI) frames for Textual Static widgets.
+
+    Side effect: sleeps between frames (real-time demo). Prefer unit tests
+    against pure helpers instead of this generator.
+
+    Args:
+        seconds: Approximate total duration.
+        fps: Frames per second (sleep = 1/fps).
+
+    Yields:
+        ASCII-boxed frame strings with ANSI stripped from body.
+    """
     n = max(1, int(seconds * fps))
     for tick in range(n):
         body = "\n".join(
@@ -103,7 +173,13 @@ def effect_demo_frames(seconds: float = 2.0, fps: float = 12.0) -> Iterator[str]
 
 
 def panel_effect_text(panel_id: int, tick: int, mode: str = "sparkle") -> str:
-    """Content for one gallery panel."""
+    """Content string for one gallery panel cell.
+
+    Args:
+        panel_id: Panel index (offsets animation).
+        tick: Global frame.
+        mode: One of ``sparkle``, ``strobe``, ``crawl``, ``glitter``.
+    """
     if mode == "strobe":
         return strip_ansi(gutter_banner(tick + panel_id))
     if mode == "crawl":

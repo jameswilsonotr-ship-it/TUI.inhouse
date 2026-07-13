@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Capability Demo — TUI menu projection</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 2rem auto; }
+    [data-role="menu"] li { margin: 0.4rem 0; }
+    code { background: #f4f0f4; padding: 0.1rem 0.3rem; }
+  </style>
+</head>
+<body>
+  <article
+    data-tui-menu
+    data-schema-version="1.0.0"
+    data-menu-id="capability-demo"
+  >
+    <h1 data-role="title">Capability Demo</h1>
+    <section data-role="description">
+      <p>
+        HTML projection of the menu pack (PR-11). Machine SSoT remains
+        <code>menu.json</code>.
+      </p>
+    </section>
+    <nav data-role="menu">
+      <ul>
+        <li
+          data-item-id="wave"
+          data-action-type="run_python"
+          data-action-target="scripts/wave.py"
+        >
+          <span data-role="label">Wave motion</span>
+        </li>
+        <li
+          data-item-id="file_picker"
+          data-action-type="run_python"
+          data-action-target="scripts/file_picker.py"
+        >
+          <span data-role="label">File picker</span>
+        </li>
+        <li
+          data-item-id="web_search"
+          data-action-type="run_python"
+          data-action-target="scripts/web_search.py"
+        >
+          <span data-role="label">Web search (sample)</span>
+        </li>
+        <li
+          data-item-id="legacy_chunk"
+          data-action-type="legacy_harness"
+          data-action-target="harness.py"
+        >
+          <span data-role="label">Legacy harness (chunk demo)</span>
+        </li>
+      </ul>
+    </nav>
+  </article>
+</body>
+</html>
