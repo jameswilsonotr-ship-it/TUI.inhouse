@@ -52,6 +52,23 @@ _SESSION_STAMP: Optional[str] = None
 _INSTALL_MODE_ACTIVE = False
 # Never mutate stty cols on WSL/Windows Terminal — that bricks keyboard after alt-tab.
 
+# ---- DOUBLE CTRL-C FORCE KILL (hard-coded, always on) ----
+# First Ctrl-C arms; second within window ALWAYS kills via os._exit (no matter what).
+_CTRL_C_LAST: float = 0.0
+_CTRL_C_WINDOW_SEC: float = 1.5
+_DOUBLE_CTRL_C_INSTALLED: bool = False
+
+# ---- EXACT S-LOADING SEQUENCE (hard-coded, always this order) ----
+# S1→S6. Do not reorder. Printed at bootstrap every normal launch.
+S_LOADING_SEQUENCE: List[tuple] = [
+    ("S1", "DETECT ENV"),
+    ("S2", "FIND/CREATE VENV"),
+    ("S3", "DEPS CHECK (skip reinstall if OK)"),
+    ("S4", "LIBRARY TEST DEMOS"),
+    ("S5", "TTY HARD RESTORE"),
+    ("S6", "LAUNCH TUI"),
+]
+
 
 def _session_stamp() -> str:
     global _SESSION_STAMP
@@ -64,6 +81,101 @@ def _session_stamp() -> str:
             _SESSION_STAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             os.environ["AWESOME_LAUNCHER_STAMP"] = _SESSION_STAMP
     return _SESSION_STAMP
+
+
+def force_kill_now(reason: str = "DOUBLE CTRL-C") -> None:
+    """ALWAYS kills the process. No graceful path. Restores TTY first."""
+    try:
+        # avoid recursion / half-state
+        global _INSTALL_MODE_ACTIVE
+        _INSTALL_MODE_ACTIVE = False
+    except Exception:
+        pass
+    try:
+        _tty_hard_reset()
+    except Exception:
+        pass
+    try:
+        msg = f"\n*** {reason} — FORCE KILL (always) ***\n"
+        sys.stderr.write(msg)
+        sys.stderr.flush()
+    except Exception:
+        pass
+    try:
+        paths = _bootstrap_log_paths()
+        _append_log(
+            paths["ops"],
+            f"FORCE KILL: {reason}\n",
+            paths["ops_latest"],
+            paths["error"],
+            paths["error_latest"],
+        )
+    except Exception:
+        pass
+    # Nuclear — bypasses Textual, asyncio, finally, atexit chains that hang
+    os._exit(130)
+
+
+def note_ctrl_c_press() -> bool:
+    """Record a Ctrl-C. Return True if this is the double-tap (caller must kill)."""
+    global _CTRL_C_LAST
+    now = time.time()
+    if _CTRL_C_LAST > 0.0 and (now - _CTRL_C_LAST) <= _CTRL_C_WINDOW_SEC:
+        return True
+    _CTRL_C_LAST = now
+    return False
+
+
+def install_double_ctrl_c_kill() -> None:
+    """Install process-wide double Ctrl-C force-kill. Idempotent. Never disable."""
+    global _DOUBLE_CTRL_C_INSTALLED
+    import signal
+
+    def _handler(signum, frame):  # type: ignore[no-untyped-def]
+        if note_ctrl_c_press():
+            force_kill_now("DOUBLE CTRL-C")
+        try:
+            sys.stderr.write(
+                "\n*** CTRL-C — tap AGAIN within "
+                f"{_CTRL_C_WINDOW_SEC}s to FORCE KILL ***\n"
+            )
+            sys.stderr.flush()
+        except Exception:
+            pass
+        # First tap only arms — do NOT exit, do NOT re-raise (would soft-quit)
+
+    try:
+        signal.signal(signal.SIGINT, _handler)
+        _DOUBLE_CTRL_C_INSTALLED = True
+    except Exception:
+        # non-main thread or platform without SIGINT — Textual key path still works
+        pass
+
+
+def s_loading_announce(step_id: str, label: str, phase: str = "RUNNING") -> None:
+    """Print one line of the hard-coded S-LOADING sequence."""
+    line = f"{step_id} LOADING · {label} ... {phase}"
+    if _INSTALL_MODE_ACTIVE:
+        install_say(line)
+    else:
+        # still use install styling when possible
+        try:
+            install_say(line)
+        except Exception:
+            print(line)
+    try:
+        _write_ops(f"{line}\n")
+    except Exception:
+        pass
+
+
+def s_loading_banner() -> None:
+    """Print the exact S1–S6 sequence map once at start of bootstrap."""
+    install_say("======== S LOADING SEQUENCE ========")
+    for step_id, label in S_LOADING_SEQUENCE:
+        install_say(f"  {step_id}  {label}")
+    install_say("====================================")
+    install_say("DOUBLE CTRL-C always FORCE KILLS")
 
 
 def detect_env() -> Dict[str, Any]:
@@ -233,29 +345,15 @@ def install_mode_enter() -> None:
     if _INSTALL_MODE_ACTIVE:
         return
     _INSTALL_MODE_ACTIVE = True
-    # Register cleanup so Ctrl-C / crash still restores TTY
+    # Register cleanup so crash still restores TTY
     try:
         import atexit
 
         atexit.register(install_mode_exit)
     except Exception:
         pass
-    try:
-        import signal
-
-        def _sig_restore(signum, frame):  # type: ignore[no-untyped-def]
-            install_mode_exit()
-            _tty_hard_reset()
-            # re-raise default behavior
-            signal.signal(signum, signal.SIG_DFL)
-            os.kill(os.getpid(), signum)
-
-        if hasattr(signal, "SIGINT"):
-            signal.signal(signal.SIGINT, _sig_restore)
-        if hasattr(signal, "SIGTERM"):
-            signal.signal(signal.SIGTERM, _sig_restore)
-    except Exception:
-        pass
+    # Double Ctrl-C stays installed (never replaced with SIG_DFL / single-kill)
+    install_double_ctrl_c_kill()
 
     # Soft banner only — NO full-screen clear, NO stty cols
     # (clear + stty cols left WSL black/unresponsive after alt-tab)
@@ -263,7 +361,7 @@ def install_mode_enter() -> None:
     install_say("========================================")
     install_say("INSTALL MODE · 40 COL · BLACK/WHITE")
     install_say("soft wrap only — TTY size untouched")
-    install_say("Ctrl-C aborts · keys stay live")
+    install_say("DOUBLE CTRL-C = FORCE KILL always")
     install_say("========================================")
     install_mode_flash(n=2)
     install_say("Key words stay colored. DEPS check next.")
@@ -311,19 +409,10 @@ def install_mode_exit() -> None:
     """Fully restore terminal after install UX so Textual + keyboard work."""
     global _INSTALL_MODE_ACTIVE
     if not _INSTALL_MODE_ACTIVE:
-        # Still hard-reset if called defensively before TUI
         return
     _INSTALL_MODE_ACTIVE = False
-    # Hand SIGINT/SIGTERM back so Textual can handle quit bindings
-    try:
-        import signal
-
-        if hasattr(signal, "SIGINT"):
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
-        if hasattr(signal, "SIGTERM"):
-            signal.signal(signal.SIGTERM, signal.SIG_DFL)
-    except Exception:
-        pass
+    # Keep double Ctrl-C handler forever (do NOT reset to SIG_DFL)
+    install_double_ctrl_c_kill()
     _tty_hard_reset()
     try:
         print("\033[0m[install mode end — terminal restored]\033[0m")
@@ -476,6 +565,7 @@ def ensure_deps(venv_path: Path) -> Path:
     install_mode_enter()
     install_say(f"stamp={paths['stamp']}")
     install_say(f"logs → {paths['dir']}")
+    s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "RUNNING")
     install_say("Ensuring core DEPS (textual, rich)...")
     install_say(f"pip log → {Path(paths['deps']).name}")
 
@@ -487,6 +577,7 @@ def ensure_deps(venv_path: Path) -> Path:
             f"SKIP reinstall: textual+rich already importable via {python_bin}\n"
         )
         _write_success("deps present — no reinstall\n")
+        s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "PASS")
     else:
         install_say("DEPS missing — running pip install (no python reinstall)")
         install_mode_flash(n=2)
@@ -541,15 +632,20 @@ def ensure_deps(venv_path: Path) -> Path:
             blob = "post-install import check failed for textual/rich\n"
             install_say("import textual/rich: FAIL")
             _write_error(blob)
+            s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "FAIL")
             install_mode_exit()
             sys.exit(1)
         install_say("import textual, rich: PASS")
         _write_success("post-install import PASS\n")
+        s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "PASS")
 
     # Always demonstrate each library with a real test call on screen
+    s_loading_announce("S4", "LIBRARY TEST DEMOS", "RUNNING")
     if not _run_library_demos(python_bin):
+        s_loading_announce("S4", "LIBRARY TEST DEMOS", "FAIL")
         install_mode_exit()
         sys.exit(1)
+    s_loading_announce("S4", "LIBRARY TEST DEMOS", "PASS")
 
     install_say("DEPS OK — library demos PASS")
     install_mode_flash(n=1)
@@ -1033,6 +1129,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         BINDINGS = [
             Binding("ctrl+q", "quit", "Quit"),
+            Binding("ctrl+c", "force_ctrl_c", "ForceKillArm", show=False, priority=True),
             Binding("s", "scan_menus", "Scan"),
             Binding("r", "toggle_record", "Record"),
             Binding("ctrl+s", "save_recording", "Save Rec"),
@@ -1052,13 +1149,40 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
             self.current_zip = None
             self.is_recording = False
             self.recording = []
+            # keep process-level double Ctrl-C alive under Textual
+            install_double_ctrl_c_kill()
 
         def compose(self) -> ComposeResult:
             yield LauncherHome()
 
+        def action_force_ctrl_c(self) -> None:
+            """Hard-coded: Ctrl-C double-tap ALWAYS force-kills, even inside Textual."""
+            if note_ctrl_c_press():
+                try:
+                    self.exit()
+                except Exception:
+                    pass
+                force_kill_now("DOUBLE CTRL-C (TUI)")
+            try:
+                self.ui_log(
+                    f"[bold red]CTRL-C — tap AGAIN within {_CTRL_C_WINDOW_SEC}s "
+                    "to FORCE KILL[/bold red]"
+                )
+            except Exception:
+                pass
+            try:
+                sys.stderr.write(
+                    f"\n*** CTRL-C — tap AGAIN within {_CTRL_C_WINDOW_SEC}s "
+                    "to FORCE KILL ***\n"
+                )
+                sys.stderr.flush()
+            except Exception:
+                pass
+
         def on_mount(self) -> None:
             self.title = self.config["branding"]["header"]
-            self.sub_title = "Phase 3 - Full Test Harness (Olivia inputs)"
+            self.sub_title = "Phase 3 - Full Test Harness (Olivia inputs) · 2×Ctrl-C kills"
+            install_double_ctrl_c_kill()
             if os.environ.get("LAUNCHER_TEST_MODE") == "1":
                 self.run_worker(self._run_phase3_test_sequence, thread=True)
 
@@ -1358,13 +1482,20 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
     # (install mode must never leave reverse-video / bad stty behind)
     install_mode_exit()
     _tty_hard_reset()
+    install_double_ctrl_c_kill()
     dirs = ensure_dirs(cfg)
     app = AwesomeLauncherApp(cfg, dirs)
     try:
         app.run()
     except KeyboardInterrupt:
+        if note_ctrl_c_press():
+            force_kill_now("DOUBLE CTRL-C (app.run)")
         _tty_hard_reset()
-        print("\n[interrupted — terminal restored]", file=sys.stderr)
+        install_double_ctrl_c_kill()
+        print(
+            f"\n*** CTRL-C — tap AGAIN within {_CTRL_C_WINDOW_SEC}s to FORCE KILL ***",
+            file=sys.stderr,
+        )
         raise
     except Exception as e:
         _tty_hard_reset()
@@ -1373,6 +1504,7 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
     finally:
         # Textual normally restores; belt-and-suspenders for WSL after alt-tab kill
         _tty_hard_reset()
+        install_double_ctrl_c_kill()
 
 # -------------------------------
 # CRASH LOGGING (PR-03)
@@ -1421,6 +1553,9 @@ def _log_tui_crash(exc: BaseException, where: str = "unknown") -> None:
 # -------------------------------
 
 def main() -> None:
+    # HARD-CODED: double Ctrl-C always force-kills (install first, before anything)
+    install_double_ctrl_c_kill()
+
     parser = argparse.ArgumentParser(
         description="AWESOME LAUNCHER OF TUI DOOM - Phase 3 (full test harness per Olivia inputs)"
     )
@@ -1471,9 +1606,20 @@ def main() -> None:
             print(f"Auto-created sample for test: {dest}")
         # Fall through to TUI with test mode
 
-    # Full path (TUI or bootstrap)
+    # Full path (TUI or bootstrap) — EXACT S-LOADING SEQUENCE S1→S6
+    install_double_ctrl_c_kill()
+    install_mode_enter()
+    s_loading_banner()
+
+    s_loading_announce("S1", "DETECT ENV", "RUNNING")
     detect_env()
+    s_loading_announce("S1", "DETECT ENV", "PASS")
+
+    s_loading_announce("S2", "FIND/CREATE VENV", "RUNNING")
     venv_path = find_or_create_venv()
+    s_loading_announce("S2", "FIND/CREATE VENV", "PASS")
+
+    # S3 + S4 announced inside ensure_deps (exact order preserved)
     venv_python = ensure_deps(venv_path)
     reexec_if_needed(venv_python)
 
@@ -1481,18 +1627,47 @@ def main() -> None:
     cfg = load_config()
     ensure_dirs(cfg)
     _write_ops(f"launching TUI app config branding={cfg.get('branding', {}).get('header')!r}\n")
+
+    s_loading_announce("S5", "TTY HARD RESTORE", "RUNNING")
+    install_mode_exit()
+    _tty_hard_reset()
+    install_double_ctrl_c_kill()  # re-assert after any exit path
+    s_loading_announce("S5", "TTY HARD RESTORE", "PASS")
+
+    s_loading_announce("S6", "LAUNCH TUI", "RUNNING")
     try:
         launch_launcher_tui(cfg)
+        s_loading_announce("S6", "LAUNCH TUI", "PASS")
         _write_success("TUI session exited cleanly (app.run returned)\n")
+    except KeyboardInterrupt:
+        # single Ctrl-C during edge paths — still require double for force kill;
+        # if note says double, force_kill already exited.
+        if note_ctrl_c_press():
+            force_kill_now("DOUBLE CTRL-C (KeyboardInterrupt)")
+        _tty_hard_reset()
+        install_double_ctrl_c_kill()
+        print("\n*** CTRL-C — tap AGAIN within 1.5s to FORCE KILL ***", file=sys.stderr)
+        raise
     except Exception as e:
         _log_tui_crash(e, where="launch_launcher_tui")
         sys.exit(1)
 
 if __name__ == "__main__":
+    install_double_ctrl_c_kill()
     try:
         main()
     except SystemExit:
         raise
+    except KeyboardInterrupt:
+        if note_ctrl_c_press():
+            force_kill_now("DOUBLE CTRL-C (__main__)")
+        _tty_hard_reset()
+        print("\n*** CTRL-C — tap AGAIN within 1.5s to FORCE KILL ***", file=sys.stderr)
+        sys.exit(130)
     except Exception as e:
+        try:
+            _tty_hard_reset()
+        except Exception:
+            pass
         _log_tui_crash(e, where="main")
         sys.exit(1)
