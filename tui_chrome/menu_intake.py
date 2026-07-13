@@ -5,9 +5,10 @@ After bootstrap Stage B:
   - if none: full-screen prompt
       "Hey, where’s your menu file, idiot?"
   - non-empty path → load that zip
-  - straight carriage return (empty) → center file picker modal
+  - straight carriage return (empty) →
+        native OS dialog first (Win/WSL/Tk/zenity), else center Textual picker
   - picker cancel / no selection → 6-panel Olivia-voice randomized demo
-    (layouts + silly nested menus, 100% Olivia voice)
+    using the same LAYOUT_MODES as gallery.py (L cycles layouts)
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ import random
 from pathlib import Path
 from typing import Callable, List, Optional
 
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Center, Middle, Vertical, Horizontal, Grid
@@ -28,6 +29,15 @@ from textual.widgets import (
     Footer,
     Header,
     Label,
+)
+
+from tui_chrome.layouts import (
+    CHROME_CSS,
+    DEFAULT_PANELS,
+    LAYOUT_MODES,
+    layout_description,
+    mount_layout,
+    next_layout,
 )
 
 # ---------------------------------------------------------------------------
@@ -223,8 +233,35 @@ class MenuLocateScreen(Screen):
                 return
             self._on_menu(p)
             return
-        # straight carriage return → center file picker
+        # straight carriage return → native dialog first, else in-TUI picker
         self.query_one("#locate-sub", Static).update(_olivia(OLIVIA_EMPTY))
+        self._open_picker_chain()
+
+    def _open_picker_chain(self) -> None:
+        """Native OS dialog when available; else center Textual DirectoryTree."""
+        self._run_native_then_fallback()
+
+    @work(thread=True, exclusive=True)
+    def _run_native_then_fallback(self) -> None:
+        from tui_chrome.native_dialog import pick_menu_file_native
+
+        try:
+            native = pick_menu_file_native(
+                title="Hey — pick your menu zip, idiot",
+                start=Path.cwd(),
+            )
+        except Exception:
+            native = None
+        self.app.call_from_thread(self._after_native, native)
+
+    def _after_native(self, native: Optional[Path]) -> None:
+        if native is not None and Path(native).exists():
+            self._on_menu(Path(native))
+            return
+        # Fallback: center Textual picker (always works in pure TTY)
+        self.query_one("#locate-sub", Static).update(
+            "Native dialog skipped/cancel — in-TUI picker. " + _olivia(OLIVIA_PICK)
+        )
         self.app.push_screen(MenuFilePicker(Path.cwd()), self._after_picker)
 
     def _after_picker(self, result: Optional[Path]) -> None:
@@ -291,37 +328,43 @@ class OliviaNestedPrompt(ModalScreen[None]):
 
 
 class OliviaSixPanelDemo(Screen):
-    """6-panel window: arrange layouts, silly menus, Olivia voice, randomized."""
+    """6-panel Olivia demo using the same LAYOUT_MODES as gallery.py.
 
-    CSS = """
+    L cycles: six_grid → three_vertical → two_stack_h → main_sidebar → two_plus_row
+    (shared mount_layout helper). R reshuffles Olivia voice. Enter nested prompt.
+    """
+
+    CSS = CHROME_CSS + """
     OliviaSixPanelDemo { background: #08040c; }
-    #demo-status { color: #ff99cc; text-style: bold; margin: 0 1; }
-    #demo-grid {
-        grid-size: 3 2;
-        grid-gutter: 1 1;
-        height: 1fr;
-        margin: 1;
+    #demo-status {
+        dock: top;
+        height: 1;
+        background: #180012;
+        color: #ff99cc;
+        text-style: bold;
     }
-    .op {
-        border: heavy #663355;
-        background: #140a18;
+    #demo-root { height: 1fr; margin: 0 1; }
+    #gallery-grid { height: 1fr; grid-size: 3 2; grid-gutter: 1 1; }
+    #gallery-cols { height: 1fr; }
+    #gallery-cols > Vertical { width: 1fr; }
+    #gallery-main { height: 1fr; }
+    #gallery-main #main-big { width: 2fr; }
+    #gallery-main #side-stack { width: 1fr; }
+    #gallery-twoh { height: 1fr; }
+    #demo-help {
+        dock: bottom;
+        height: 3;
+        color: #88ffaa;
+        background: #0a0a12;
         padding: 0 1;
-        height: 1fr;
     }
-    .op.hot {
-        border: heavy #ff66aa;
-        background: #221028;
-    }
-    .op-title { text-style: bold; color: #ff88cc; }
-    .op-body { color: #ddbbcc; }
-    #demo-help { color: #888; margin: 0 1; }
     """
 
     BINDINGS = [
         Binding("escape", "close", "Back", show=True),
         Binding("q", "close", "Back", show=False),
-        Binding("l", "shuffle_layout", "Layout", show=True),
-        Binding("L", "shuffle_layout", "Layout", show=False),
+        Binding("l", "next_layout", "Layout", show=True),
+        Binding("L", "next_layout", "Layout", show=False),
         Binding("r", "reshuffle_voice", "Reshuffle", show=True),
         Binding("enter", "open_nested", "Nested", show=True),
         Binding("left", "focus_prev", "Prev", show=True),
@@ -329,82 +372,81 @@ class OliviaSixPanelDemo(Screen):
         Binding("ctrl+c", "app.force_ctrl_c", "KillArm", show=False, priority=True),
     ]
 
-    LAYOUTS = ("six_grid", "hot_corners", "row_wave")
-
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.focus_idx = 0
-        self.layout_name = self.LAYOUTS[0]
+        self.layout_mode = LAYOUT_MODES[0]
         self._lines = [_olivia(OLIVIA_PANEL) for _ in range(6)]
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(self._status(), id="demo-status")
-        yield Grid(id="demo-grid")
+        yield Vertical(id="demo-root")
         yield Static(
-            "←/→ focus · L layout · R reshuffle Olivia · Enter nested · Esc back",
+            "←/→ focus · L gallery layout · R Olivia voice · Enter nested · Esc back",
             id="demo-help",
         )
         yield Footer()
 
     def on_mount(self) -> None:
         self._rebuild()
-        self._apply_hot()
+        self._apply_focus()
 
     def _status(self) -> str:
         return (
-            f"OLIVIA 6-PANEL DEMO · layout={self.layout_name} · "
-            f"focus=P{self.focus_idx + 1} · {_olivia(OLIVIA_DEMO)[:48]}"
+            f"OLIVIA 6-PANEL · layout={self.layout_mode} "
+            f"({layout_description(self.layout_mode)}) · "
+            f"focus=P{self.focus_idx + 1} · {_olivia(OLIVIA_DEMO)[:40]}"
+        )
+
+    def _panel_widget(self, i: int):
+        spec = DEFAULT_PANELS[i]
+        return Vertical(
+            Static(spec.title, classes="panel-title"),
+            Static(self._lines[i], classes="panel-body", id=f"obody-{i}"),
+            classes="panel",
+            id=spec.id,
         )
 
     def _rebuild(self) -> None:
-        grid = self.query_one("#demo-grid", Grid)
-        grid.remove_children()
-        titles = ["① MENUS", "② NESTED", "③ LOGS", "④ EFFECTS", "⑤ LAYOUT", "⑥ ABOUT"]
-        for i in range(6):
-            grid.mount(
-                Vertical(
-                    Static(titles[i], classes="op-title"),
-                    Static(self._lines[i], classes="op-body", id=f"obody-{i}"),
-                    classes="op",
-                    id=f"op-{i}",
-                )
-            )
-        # layout flavor via CSS classes on grid — visual shuffle of text weights
-        if self.layout_name == "hot_corners":
-            for i in (0, 2, 3, 5):
-                try:
-                    self.query_one(f"#op-{i}").add_class("hot")
-                except Exception:
-                    pass
+        root = self.query_one("#demo-root", Vertical)
+        widgets = [self._panel_widget(i) for i in range(6)]
+        mount_layout(
+            root,
+            self.layout_mode,
+            widgets,
+            Grid=Grid,
+            Horizontal=Horizontal,
+            Vertical=Vertical,
+        )
+        self._apply_focus()
         self.query_one("#demo-status", Static).update(self._status())
 
-    def _apply_hot(self) -> None:
-        for i in range(6):
+    def _apply_focus(self) -> None:
+        for spec in DEFAULT_PANELS:
             try:
-                w = self.query_one(f"#op-{i}")
-                w.remove_class("hot")
-                if i == self.focus_idx:
-                    w.add_class("hot")
+                w = self.query_one(f"#{spec.id}")
             except Exception:
-                pass
+                continue
+            if spec.index == self.focus_idx:
+                w.add_class("focused")
+            else:
+                w.remove_class("focused")
 
     def action_focus_next(self) -> None:
         self.focus_idx = (self.focus_idx + 1) % 6
-        self._apply_hot()
+        self._apply_focus()
         self.query_one("#demo-status", Static).update(self._status())
 
     def action_focus_prev(self) -> None:
         self.focus_idx = (self.focus_idx - 1) % 6
-        self._apply_hot()
+        self._apply_focus()
         self.query_one("#demo-status", Static).update(self._status())
 
-    def action_shuffle_layout(self) -> None:
-        i = self.LAYOUTS.index(self.layout_name)
-        self.layout_name = self.LAYOUTS[(i + 1) % len(self.LAYOUTS)]
+    def action_next_layout(self) -> None:
+        self.layout_mode = next_layout(self.layout_mode)
         self._lines = [_olivia(OLIVIA_PANEL) for _ in range(6)]
         self._rebuild()
-        self._apply_hot()
 
     def action_reshuffle_voice(self) -> None:
         self._lines = [_olivia(OLIVIA_PANEL) for _ in range(6)]

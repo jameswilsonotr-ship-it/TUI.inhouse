@@ -1538,7 +1538,22 @@ def main() -> None:
     parser.add_argument("--replay", metavar="SESSION.json", help="Replay a recorded session (non-interactive)")
     parser.add_argument("--create-demo", action="store_true", help="Create sample_menu.zip and exit")
     parser.add_argument("--test", action="store_true", help="Run Phase 3 test harness (interactive prompt, auto-zip, Gutter flash/obnoxious effects, success exit)")
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Quieter Stage A/B (no flash/spinner; one-line steps). Env: AWESOME_BOOTSTRAP_QUIET=1",
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Faster theater (short spins). Env: AWESOME_BOOTSTRAP_FAST=1",
+    )
     args = parser.parse_args()
+
+    if args.quiet:
+        os.environ["AWESOME_BOOTSTRAP_QUIET"] = "1"
+    if args.fast:
+        os.environ["AWESOME_BOOTSTRAP_FAST"] = "1"
 
     if args.create_demo:
         dest = Path.cwd() / "sample_menu.zip"

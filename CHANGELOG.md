@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## [0.1.5] - 2026-07-13 - Quiet/fast theater, gallery layouts in demo, native file dialog
+
+### Added
+1. **Quieter / faster Stage A–B**
+   - `AWESOME_BOOTSTRAP_QUIET=1` or `--quiet` — no flash/spinner/clear; one-line steps + compact demos
+   - `AWESOME_BOOTSTRAP_FAST=1` or `--fast` — shorter spins / fewer flash frames
+   - Still runs real dep checks + library API tests
+2. **Richer 6-panel Olivia demo layouts** — cycles the same `LAYOUT_MODES` as `gallery.py` via shared `mount_layout()`: `six_grid` · `three_vertical` · `two_stack_h` · `main_sidebar` · `two_plus_row`
+3. **Native OS file dialog** on bare Return (before in-TUI picker):
+   - Windows / WSL → PowerShell `OpenFileDialog`
+   - Tk `filedialog` when available
+   - `zenity` / `kdialog` on Linux
+   - Fallback: center Textual `DirectoryTree` picker → demo
+
 ## [0.1.4] - 2026-07-13 - Stage theater, library demo cards, Olivia menu intake
 
 ### Added

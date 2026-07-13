@@ -18,6 +18,7 @@ from tui_chrome.layouts import (
     LAYOUT_MODES,
     circle_index,
     layout_description,
+    mount_layout,
     next_layout,
 )
 from tui_chrome import effects
@@ -136,59 +137,15 @@ class GalleryScreen(Screen):
 
     def _rebuild_layout(self) -> None:
         root = self.query_one("#gallery-root", Vertical)
-        root.remove_children()
-        panels = DEFAULT_PANELS
-        mode = self.layout_mode
-
-        if mode == "six_grid":
-            grid = Grid(id="gallery-grid")
-            root.mount(grid)
-            for spec in panels:
-                grid.mount(self._panel_widget(spec))
-
-        elif mode == "three_vertical":
-            cols = Horizontal(id="gallery-cols")
-            root.mount(cols)
-            for col_i in range(3):
-                col = Vertical()
-                cols.mount(col)
-                for row in range(2):
-                    idx = col_i * 2 + row
-                    col.mount(self._panel_widget(panels[idx]))
-
-        elif mode == "two_stack_h":
-            row = Horizontal(id="gallery-twoh")
-            root.mount(row)
-            left = Vertical()
-            right = Horizontal()
-            row.mount(left)
-            row.mount(right)
-            left.mount(self._panel_widget(panels[0]))
-            left.mount(self._panel_widget(panels[1]))
-            for i in range(2, 6):
-                right.mount(self._panel_widget(panels[i]))
-
-        elif mode == "main_sidebar":
-            row = Horizontal(id="gallery-main")
-            root.mount(row)
-            main = Vertical(id="main-big")
-            side = Vertical(id="side-stack")
-            row.mount(main)
-            row.mount(side)
-            main.mount(self._panel_widget(panels[0]))
-            for i in range(1, 6):
-                side.mount(self._panel_widget(panels[i]))
-
-        else:  # two_plus_row
-            top = Horizontal()
-            bot = Horizontal()
-            root.mount(top)
-            root.mount(bot)
-            top.mount(self._panel_widget(panels[0]))
-            top.mount(self._panel_widget(panels[1]))
-            for i in range(2, 6):
-                bot.mount(self._panel_widget(panels[i]))
-
+        widgets = [self._panel_widget(spec) for spec in DEFAULT_PANELS]
+        mount_layout(
+            root,
+            self.layout_mode,
+            widgets,
+            Grid=Grid,
+            Horizontal=Horizontal,
+            Vertical=Vertical,
+        )
         self._apply_focus()
         self.query_one("#gallery-status", Static).update(self._status_text())
 
