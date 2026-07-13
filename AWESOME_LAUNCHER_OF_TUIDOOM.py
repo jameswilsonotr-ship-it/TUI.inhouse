@@ -442,91 +442,26 @@ def _deps_importable(python_bin: Path) -> bool:
 
 
 def _run_library_demos(python_bin: Path) -> bool:
-    """On-screen test calls for each library used in dependency checking.
-
-    No reinstall — only import + tiny API exercise, results printed + logged.
-    """
-    paths = _bootstrap_log_paths()
-    install_mode_flash(n=2)
-    install_say("=== LIBRARY TEST DEMOS ===")
-    demo_script = r"""
-import json, sys
-results = []
-
-# textual
-try:
-    import textual
-    from textual.app import App
-    ver = getattr(textual, "__version__", "?")
-    ok = callable(App)
-    results.append(("textual", True, f"version={ver} App={ok}"))
-except Exception as e:
-    results.append(("textual", False, repr(e)))
-
-# rich
-try:
-    import rich
-    from rich.console import Console
-    from rich.text import Text
-    c = Console(file=sys.stdout, force_terminal=True, width=40, highlight=False)
-    t = Text("rich OK", style="bold white on black")
-    # don't print via Console here — parent formats; just exercise API
-    _ = t.plain
-    ver = getattr(rich, "__version__", "?")
-    results.append(("rich", True, f"version={ver} Console+Text ok"))
-except Exception as e:
-    results.append(("rich", False, repr(e)))
-
-# stdlib demos shown alongside (no install)
-try:
-    import zipfile, pathlib
-    results.append(("zipfile", True, f"ZipFile={callable(zipfile.ZipFile)}"))
-    results.append(("pathlib", True, f"Path={callable(pathlib.Path)}"))
-except Exception as e:
-    results.append(("stdlib", False, repr(e)))
-
-print(json.dumps(results))
-"""
+    """Stage B: graphical library demos that actually test each library."""
     try:
-        proc = subprocess.run(
-            [str(python_bin), "-c", demo_script],
-            capture_output=True,
-            text=True,
-            timeout=45,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        install_say(f"TEST FAIL: library demos: {e}")
-        _write_error(f"library demos OS error: {e}\n")
-        return False
+        from tui_chrome.bootstrap_stage import run_library_demo_graphical, stage_b_exit_to_tui
+    except ImportError:
+        # package path: ensure repo root on sys.path
+        root = str(Path(__file__).parent)
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        from tui_chrome.bootstrap_stage import run_library_demo_graphical, stage_b_exit_to_tui
 
-    raw = (proc.stdout or "").strip().splitlines()
-    json_line = raw[-1] if raw else "[]"
-    try:
-        results = json.loads(json_line)
-    except json.JSONDecodeError:
-        install_say("TEST FAIL: could not parse demo results")
-        _write_error(f"demo parse fail stdout={proc.stdout!r} stderr={proc.stderr!r}\n")
-        return False
-
-    all_ok = True
-    lines_log: List[str] = []
-    for name, ok, detail in results:
-        status = "PASS" if ok else "FAIL"
-        if not ok:
-            all_ok = False
-        line = f"TEST {name}: {status} — {detail}"
-        install_say(line)
-        lines_log.append(line)
-
-    blob = "LIBRARY DEMOS\n" + "\n".join(lines_log) + f"\nall_ok={all_ok}\n"
-    _write_ops(blob)
-    if all_ok:
-        _write_success("library demos PASS (textual, rich, zipfile, pathlib)\n")
-        install_say("DEPS library tests: PASS")
+    s_loading_announce("S4", "LIBRARY TEST DEMOS", "RUNNING")
+    ok = run_library_demo_graphical(python_bin)
+    if ok:
+        s_loading_announce("S4", "LIBRARY TEST DEMOS", "PASS")
+        _write_success("library demos PASS (graphical + real API tests)\n")
     else:
-        _write_error(blob)
-        install_say("DEPS library tests: FAIL")
-    return all_ok
+        s_loading_announce("S4", "LIBRARY TEST DEMOS", "FAIL")
+        _write_error("library demos FAIL\n")
+    stage_b_exit_to_tui()
+    return ok
 
 
 def find_or_create_venv() -> Path:
@@ -546,111 +481,92 @@ def find_or_create_venv() -> Path:
     return venv_path
 
 
-def ensure_deps(venv_path: Path) -> Path:
-    """Ensure textual/rich in venv. Skip reinstall if already importable.
+def _install_missing_deps(python_bin: Path, paths: Dict[str, Any]) -> None:
+    """pip install only when needed. No python reinstall. Logs to stamped deps log."""
+    pip = [str(python_bin), "-m", "pip"]
 
-    Always runs on-screen library test demos. Install mode = 40-col black/white
-    with flashes and colored key words. Logs go to stamped files under logs/.
+    def _run_pip(args: List[str], label: str) -> None:
+        cmd = pip + args
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        blob = (
+            f"[{label}] cmd={' '.join(cmd)}\n"
+            f"returncode={proc.returncode}\n"
+            f"--- stdout ---\n{proc.stdout or ''}\n"
+            f"--- stderr ---\n{proc.stderr or ''}\n"
+        )
+        _append_log(
+            paths["deps"],
+            blob,
+            paths["deps_latest"],
+            paths["bootstrap"],
+            paths["bootstrap_latest"],
+        )
+        if proc.returncode != 0:
+            _write_error(f"BOOTSTRAP DEP FAILURE\n{blob}")
+            raise subprocess.CalledProcessError(
+                proc.returncode, cmd, proc.stdout, proc.stderr
+            )
+        _write_success(f"pip {label} PASS\n")
+
+    _run_pip(["install", "--upgrade", "pip"], "upgrade-pip")
+    req = Path(__file__).parent / "requirements.txt"
+    if req.exists():
+        _run_pip(["install", "-r", str(req)], "install-requirements")
+    else:
+        _run_pip(["install"] + CORE_DEPS, "install-core-deps")
+    if not _deps_importable(python_bin):
+        raise RuntimeError("post-install import textual/rich failed")
+
+
+def ensure_deps(venv_path: Path) -> Path:
+    """Stage A (black/40) install theater → real deps → Stage B (blue/80) demos.
+
+    Skip reinstall when importable. Library demos are graphical AND real API tests.
     """
+    root = str(Path(__file__).parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from tui_chrome.bootstrap_stage import run_stage_a_steps
+
     python_bin = _venv_python(venv_path)
     paths = _bootstrap_log_paths()
     if not python_bin.exists():
-        install_mode_enter()
         msg = f"venv python missing: {python_bin}\n"
-        install_say(msg.strip())
         _write_error(msg)
         sys.exit(1)
 
-    # Enter install UX as soon as we touch deps (install OR check path)
-    install_mode_enter()
-    install_say(f"stamp={paths['stamp']}")
-    install_say(f"logs → {paths['dir']}")
+    install_double_ctrl_c_kill()
     s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "RUNNING")
-    install_say("Ensuring core DEPS (textual, rich)...")
-    install_say(f"pip log → {Path(paths['deps']).name}")
 
-    already_ok = _deps_importable(python_bin)
-    if already_ok:
-        install_say("DEPS already importable — SKIP pip reinstall")
-        install_mode_flash(n=1)
-        _write_ops(
-            f"SKIP reinstall: textual+rich already importable via {python_bin}\n"
-        )
-        _write_success("deps present — no reinstall\n")
-        s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "PASS")
-    else:
-        install_say("DEPS missing — running pip install (no python reinstall)")
-        install_mode_flash(n=2)
-        pip = [str(python_bin), "-m", "pip"]
+    def hook_a5() -> None:
+        """Real deps step inside Stage A theater."""
+        if _deps_importable(python_bin):
+            _write_ops(f"SKIP reinstall: textual+rich via {python_bin}\n")
+            _write_success("deps present — no reinstall\n")
+            return
+        _install_missing_deps(python_bin, paths)
 
-        def _run_pip(args: List[str], label: str) -> None:
-            cmd = pip + args
-            install_say(f"pip: {label}")
-            install_say(" ".join(cmd)[:80])
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            blob = (
-                f"[{label}] cmd={' '.join(cmd)}\n"
-                f"returncode={proc.returncode}\n"
-                f"--- stdout ---\n{proc.stdout or ''}\n"
-                f"--- stderr ---\n{proc.stderr or ''}\n"
-            )
-            _append_log(
-                paths["deps"], blob, paths["deps_latest"], paths["bootstrap"], paths["bootstrap_latest"]
-            )
-            if proc.returncode != 0:
-                _write_error(f"BOOTSTRAP DEP FAILURE\n{blob}")
-                tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-12:]
-                for line in tail:
-                    install_say(f"| {line}")
-                install_say(f"Dep install FAIL ({label})")
-                install_say(f"Full: {paths['deps'].name}")
-                raise subprocess.CalledProcessError(
-                    proc.returncode, cmd, proc.stdout, proc.stderr
-                )
-            install_say(f"{label}: PASS")
-            _write_success(f"pip {label} PASS\n")
+    # Stage A: blank black screen, white text, 40-col soft wrap, spinner steps
+    run_stage_a_steps(
+        {
+            "A2": lambda: None,  # env already sniffed in main
+            "A3": lambda: None,  # venv already ensured in main
+            "A4": lambda: subprocess.run(
+                [str(python_bin), "-m", "pip", "--version"],
+                capture_output=True,
+                check=False,
+            ),
+            "A5": hook_a5,
+            "A6": lambda: None,
+        }
+    )
+    s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "PASS")
 
-        try:
-            # Do NOT reinstall python. Only pip packages when missing.
-            # Skip pip upgrade if packages already missing only — still try install.
-            _run_pip(["install", "--upgrade", "pip"], "upgrade-pip")
-            req = Path(__file__).parent / "requirements.txt"
-            if req.exists():
-                _run_pip(["install", "-r", str(req)], "install-requirements")
-            else:
-                _run_pip(["install"] + CORE_DEPS, "install-core-deps")
-        except subprocess.CalledProcessError:
-            install_mode_exit()
-            sys.exit(1)
-        except OSError as e:
-            _write_error(f"Dep install OS error: {e}\n")
-            install_say(f"Dep install ERROR: {e}")
-            install_mode_exit()
-            sys.exit(1)
-
-        if not _deps_importable(python_bin):
-            blob = "post-install import check failed for textual/rich\n"
-            install_say("import textual/rich: FAIL")
-            _write_error(blob)
-            s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "FAIL")
-            install_mode_exit()
-            sys.exit(1)
-        install_say("import textual, rich: PASS")
-        _write_success("post-install import PASS\n")
-        s_loading_announce("S3", "DEPS CHECK (skip reinstall if OK)", "PASS")
-
-    # Always demonstrate each library with a real test call on screen
-    s_loading_announce("S4", "LIBRARY TEST DEMOS", "RUNNING")
+    # Stage B: dark blue, 80-col, graphical real library demos
     if not _run_library_demos(python_bin):
-        s_loading_announce("S4", "LIBRARY TEST DEMOS", "FAIL")
-        install_mode_exit()
         sys.exit(1)
-    s_loading_announce("S4", "LIBRARY TEST DEMOS", "PASS")
 
-    install_say("DEPS OK — library demos PASS")
-    install_mode_flash(n=1)
-    install_mode_exit()
-    print("  deps OK (textual, rich importable; demos passed)")
+    print("  deps OK (theater complete; demos passed)")
     print(f"  success log → {paths['success']}")
     print(f"  ops log     → {paths['ops']}")
     return python_bin
@@ -1181,10 +1097,70 @@ def launch_launcher_tui(cfg: Dict[str, Any]) -> None:
 
         def on_mount(self) -> None:
             self.title = self.config["branding"]["header"]
-            self.sub_title = "Phase 3 - Full Test Harness (Olivia inputs) · 2×Ctrl-C kills"
+            self.sub_title = "Phase 3 · Olivia menu flow · 2×Ctrl-C kills"
             install_double_ctrl_c_kill()
             if os.environ.get("LAUNCHER_TEST_MODE") == "1":
                 self.run_worker(self._run_phase3_test_sequence, thread=True)
+            else:
+                # After Stage B: load menu or Olivia "where is your menu, idiot?"
+                self.call_after_refresh(self._menu_boot_flow)
+
+        def _menu_boot_flow(self) -> None:
+            """Load menu zip if present; else Olivia locate → picker → 6-panel demo."""
+            zips = find_menu_zips(self.config.get("menu_search_paths", []))
+            sample = Path.cwd() / self.config.get("demo", {}).get(
+                "sample_zip_name", "sample_menu.zip"
+            )
+            if sample.exists() and sample not in zips:
+                zips = [sample] + zips
+            if zips:
+                self.current_zip = zips[0]
+                self._zips = zips
+                try:
+                    self.ui_log(
+                        f"[green]Menu loaded:[/green] {self.current_zip.name} "
+                        f"({len(zips)} found). Scan or Run when ready."
+                    )
+                except Exception:
+                    pass
+                return
+            # No menu file — draw background prompt (Olivia voice)
+            try:
+                from tui_chrome.menu_intake import MenuLocateScreen, OliviaSixPanelDemo
+            except ImportError:
+                root = str(Path(__file__).parent)
+                if root not in sys.path:
+                    sys.path.insert(0, root)
+                from tui_chrome.menu_intake import MenuLocateScreen, OliviaSixPanelDemo
+
+            def _on_menu(path: Path) -> None:
+                self.current_zip = path
+                self._zips = [path]
+                try:
+                    self.pop_screen()
+                except Exception:
+                    pass
+                self.ui_log(f"[cyan]Menu set:[/cyan] {path}")
+                # if it's a zip under cwd, also extract-ready
+                try:
+                    if path.suffix.lower() == ".zip":
+                        extracted, _ = extract_menu_zip(path, self.dirs["menus"])
+                        self.ui_log(f"[dim]extracted → {extracted.name}[/dim]")
+                except Exception as e:
+                    self.ui_log(f"[yellow]extract later:[/yellow] {e}")
+
+            def _on_demo() -> None:
+                try:
+                    self.pop_screen()
+                except Exception:
+                    pass
+                self.ui_log(
+                    "[magenta]No menu — six-panel Olivia demo "
+                    "(layouts · nested · randomized voice)[/magenta]"
+                )
+                self.push_screen(OliviaSixPanelDemo())
+
+            self.push_screen(MenuLocateScreen(on_menu=_on_menu, on_demo=_on_demo))
 
         def _run_phase3_test_sequence(self) -> None:
             """Phase 3 test harness per Olivia-pleasereadthis.markdown: 
@@ -1606,9 +1582,8 @@ def main() -> None:
             print(f"Auto-created sample for test: {dest}")
         # Fall through to TUI with test mode
 
-    # Full path (TUI or bootstrap) — EXACT S-LOADING SEQUENCE S1→S6
+    # Full path — Stage A/B theater lives in ensure_deps; S1/S2 here first
     install_double_ctrl_c_kill()
-    install_mode_enter()
     s_loading_banner()
 
     s_loading_announce("S1", "DETECT ENV", "RUNNING")
@@ -1616,14 +1591,21 @@ def main() -> None:
     s_loading_announce("S1", "DETECT ENV", "PASS")
 
     s_loading_announce("S2", "FIND/CREATE VENV", "RUNNING")
-    venv_path = find_or_create_venv()
+    # quiet venv create (Stage A will re-announce comfort steps)
+    venv_path = Path(__file__).parent / ".venv"
+    if not venv_path.exists():
+        try:
+            subprocess.check_call([sys.executable, "-m", "venv", str(venv_path)])
+            _write_success(f"venv created at {venv_path}\n")
+        except subprocess.CalledProcessError as e:
+            _write_error(f"venv create failed: {e}\n")
+            sys.exit(1)
     s_loading_announce("S2", "FIND/CREATE VENV", "PASS")
 
-    # S3 + S4 announced inside ensure_deps (exact order preserved)
+    # S3 Stage A theater + S4 Stage B demos inside ensure_deps
     venv_python = ensure_deps(venv_path)
     reexec_if_needed(venv_python)
 
-    # Inside venv (or already good)
     cfg = load_config()
     ensure_dirs(cfg)
     _write_ops(f"launching TUI app config branding={cfg.get('branding', {}).get('header')!r}\n")
@@ -1631,7 +1613,7 @@ def main() -> None:
     s_loading_announce("S5", "TTY HARD RESTORE", "RUNNING")
     install_mode_exit()
     _tty_hard_reset()
-    install_double_ctrl_c_kill()  # re-assert after any exit path
+    install_double_ctrl_c_kill()
     s_loading_announce("S5", "TTY HARD RESTORE", "PASS")
 
     s_loading_announce("S6", "LAUNCH TUI", "RUNNING")
@@ -1640,8 +1622,6 @@ def main() -> None:
         s_loading_announce("S6", "LAUNCH TUI", "PASS")
         _write_success("TUI session exited cleanly (app.run returned)\n")
     except KeyboardInterrupt:
-        # single Ctrl-C during edge paths — still require double for force kill;
-        # if note says double, force_kill already exited.
         if note_ctrl_c_press():
             force_kill_now("DOUBLE CTRL-C (KeyboardInterrupt)")
         _tty_hard_reset()

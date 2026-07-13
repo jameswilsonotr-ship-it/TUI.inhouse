@@ -1,0 +1,40 @@
+/* PR-04 — shared panel chrome (loaded by gallery if CSS_PATH set) */
+
+.panel {
+    border: heavy #664466;
+    background: #120810;
+    margin: 0 1;
+    padding: 0 1;
+    height: 1fr;
+}
+
+.panel.focused {
+    border: double #ff44aa;
+    background: #1a0a14;
+}
+
+.panel-title {
+    text-style: bold;
+    color: #ff88cc;
+    background: #220018;
+}
+
+.panel-body {
+    color: #e8d0e0;
+    height: 1fr;
+}
+
+#gallery-help {
+    dock: bottom;
+    height: 3;
+    background: #0a0a12;
+    color: #88ffaa;
+}
+
+#gallery-status {
+    dock: top;
+    height: 1;
+    background: #180012;
+    color: #ffcc00;
+    text-style: bold;
+}
