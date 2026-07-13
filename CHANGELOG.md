@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.1.4] - 2026-07-13 - Stage theater, library demo cards, Olivia menu intake
+
+### Added
+- **Stage A theater** (first thing): blank screen, persistent black bg, white text, soft 40-col wrap, stylized flash, install step list with cutesy braille spinner (research: cargo/npm/gum-style phase UX — no `stty cols`).
+- **Stage B theater** (after comfort): flash → dark blue bg, soft 80-col wrap, **graphical library demos that really test** textual / rich / zipfile / pathlib / json.
+- **Menu intake**: if no menu zip — Olivia voice *"where’s your menu file, idiot?"*; bare Return → center file picker; cancel/none → **6-panel Olivia demo** (layout shuffle, nested recursive prompts, randomized 100% Olivia lines).
+- Modules: `tui_chrome/bootstrap_stage.py`, `tui_chrome/menu_intake.py`.
+
 ## [0.1.3] - 2026-07-13 - Double Ctrl-C force kill + exact S-LOADING sequence
 
 ### Added
